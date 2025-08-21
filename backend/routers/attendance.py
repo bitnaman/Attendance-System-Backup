@@ -1,0 +1,900 @@
+"""
+Attendance Router with Class-Based Filtering.
+Handles class-specific attendance marking and analytics.
+"""
+import os
+import shutil
+import json
+import logging
+import numpy as np
+import pandas as pd
+from datetime import datetime, timedelta
+from typing import Optional
+from fastapi import APIRouter, UploadFile, Form, File, HTTPException, Depends, Query
+from fastapi.responses import FileResponse, StreamingResponse
+from sqlalchemy.orm import Session
+from sqlalchemy import and_, func
+import io
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils.dataframe import dataframe_to_rows
+from openpyxl.utils import get_column_letter
+from openpyxl import Workbook
+from openpyxl.chart import BarChart, Reference
+import csv
+
+from database import Student, Class, AttendanceSession, AttendanceRecord
+from dependencies import get_db, get_face_recognizer
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(
+    prefix="/attendance",
+    tags=["Attendance"],
+)
+
+
+def safe_json_serialize(obj):
+    """Convert NumPy types to Python native types for JSON serialization"""
+    if isinstance(obj, dict):
+        return {k: safe_json_serialize(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [safe_json_serialize(item) for item in obj]
+    elif isinstance(obj, (np.integer, np.int64, np.int32, np.int16, np.int8)):
+        return int(obj)
+    elif isinstance(obj, (np.floating, np.float64, np.float32, np.float16)):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, np.bool_):
+        return bool(obj)
+    elif hasattr(obj, 'item'):  # Handle any remaining NumPy scalars
+        return obj.item()
+    else:
+        return obj
+
+
+@router.post("/mark")
+async def mark_attendance(
+    session_name: str = Form(...),
+    class_id: int = Form(...),  # REQUIRED: Class selection for attendance
+    photo: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    face_recognizer = Depends(get_face_recognizer)
+):
+    """Mark attendance for a specific class"""
+    if not photo.content_type.startswith('image/'):
+        raise HTTPException(status_code=400, detail="File must be an image")
+    
+    # Validate class exists
+    class_obj = db.query(Class).filter(Class.id == class_id).first()
+    if not class_obj:
+        raise HTTPException(status_code=400, detail="Invalid class ID")
+    
+    # Load students for the specific class
+    logger.info(f"Loading students for class {class_obj.name} {class_obj.section}")
+    face_recognizer.load_class_students(db, class_id)
+    
+    # Save uploaded photo
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    photo_filename = f"{session_name.replace(' ', '_')}_{class_obj.name}_{class_obj.section}_{timestamp}.jpg"
+    photo_path = f"static/attendance_photos/{photo_filename}"
+
+    os.makedirs(os.path.dirname(photo_path), exist_ok=True)
+
+    with open(photo_path, "wb") as buffer:
+        shutil.copyfileobj(photo.file, buffer)
+
+    try:
+        # Process photo with class-specific filtering
+        processing_result = face_recognizer.process_class_photo(photo_path, class_id)
+        if "error" in processing_result:
+             raise HTTPException(status_code=500, detail=processing_result["error"])
+
+        # Create attendance session
+        session = AttendanceSession(
+            session_name=session_name,
+            photo_path=photo_path,
+            class_id=class_id,
+            total_detected=processing_result["total_faces_detected"],
+            total_present=len(processing_result["identified_students"]),
+            confidence_avg=float(sum(s["confidence"] for s in processing_result["identified_students"]) / 
+                            max(1, len(processing_result["identified_students"])))
+        )
+
+        db.add(session)
+        db.commit()
+        db.refresh(session)
+
+        # Mark identified students as present
+        identified_student_ids = {match["student_id"] for match in processing_result["identified_students"]}
+        
+        for student_match in processing_result["identified_students"]:
+            try:
+                facial_area = safe_json_serialize(student_match.get("facial_area", {}))
+                detection_details_json = json.dumps(facial_area)
+            except Exception as e:
+                logger.warning(f"Failed to serialize facial_area: {e}")
+                detection_details_json = json.dumps({})
+                
+            record = AttendanceRecord(
+                student_id=student_match["student_id"],
+                session_id=session.id,
+                is_present=True,
+                confidence=float(student_match["confidence"]),
+                detection_details=detection_details_json
+            )
+            db.add(record)
+
+        # Mark remaining class students as absent
+        class_students = db.query(Student).filter(
+            Student.class_id == class_id,
+            Student.is_active == True
+        ).all()
+        
+        for student in class_students:
+            if student.id not in identified_student_ids:
+                record = AttendanceRecord(
+                    student_id=student.id,
+                    session_id=session.id,
+                    is_present=False,
+                    confidence=0.0
+                )
+                db.add(record)
+
+        db.commit()
+
+        present_count = len(identified_student_ids)
+        total_class_students = len(class_students)
+        
+        logger.info(f"Class attendance marked for {class_obj.name} {class_obj.section}: {present_count}/{total_class_students} present")
+
+        return {
+            "success": True,
+            "session_id": session.id,
+            "session_name": session_name,
+            "class_id": class_id,
+            "class_name": f"{class_obj.name} {class_obj.section}",
+            "processing_result": safe_json_serialize(processing_result),
+            "total_students": total_class_students,
+            "present_count": present_count,
+            "absent_count": total_class_students - present_count
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Photo processing error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="An unexpected error occurred during photo processing.")
+
+
+@router.get("/sessions")
+async def get_attendance_sessions(
+    class_id: Optional[int] = Query(None),
+    limit: int = Query(10, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db)
+):
+    """Get attendance sessions with optional class filtering"""
+    query = db.query(AttendanceSession).join(Class)
+    
+    if class_id:
+        query = query.filter(AttendanceSession.class_id == class_id)
+        
+    sessions = query.order_by(AttendanceSession.created_at.desc()).offset(offset).limit(limit).all()
+    
+    return [
+        {
+            "id": s.id,
+            "session_name": s.session_name,
+            "class_id": s.class_id,
+            "class_name": s.class_obj.name,
+            "class_section": s.class_obj.section,
+            "total_detected": s.total_detected,
+            "total_present": s.total_present,
+            "confidence_avg": s.confidence_avg,
+            "created_at": s.created_at.isoformat() if s.created_at else None,
+            "date": s.created_at.isoformat() if s.created_at else None,  # compatibility
+            "photo_url": f"/static/attendance_photos/{os.path.basename(s.photo_path)}" if s.photo_path else None
+        }
+        for s in sessions
+    ]
+
+
+@router.get("/records")
+async def get_attendance_records(
+    session_id: Optional[int] = Query(None),
+    student_id: Optional[int] = Query(None),
+    class_id: Optional[int] = Query(None),
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db)
+):
+    """Get attendance records with filtering options"""
+    query = db.query(AttendanceRecord).join(Student).join(AttendanceSession)
+    
+    if session_id:
+        query = query.filter(AttendanceRecord.session_id == session_id)
+    if student_id:
+        query = query.filter(AttendanceRecord.student_id == student_id)
+    if class_id:
+        query = query.filter(Student.class_id == class_id)
+        
+    records = query.order_by(AttendanceRecord.created_at.desc()).offset(offset).limit(limit).all()
+    
+    return [
+        {
+            "id": r.id,
+            "student_id": r.student_id,
+            "student_name": r.student.name,
+            "student_roll_no": r.student.roll_no,
+            "class_id": r.student.class_id,
+            "class_name": r.student.class_obj.name,
+            "class_section": r.student.class_section,
+            "session_id": r.session_id,
+            "session_name": r.session.session_name,
+            "is_present": r.is_present,
+            # compatibility aliases
+            "roll_no": r.student.roll_no,
+            "prn": r.student.prn,
+            "seat_no": r.student.seat_no,
+            "status": r.is_present,
+            "confidence": r.confidence,
+            "detection_details": r.detection_details,
+            "created_at": r.created_at.isoformat() if r.created_at else None
+        }
+        for r in records
+    ]
+
+
+@router.get("/stats")
+async def get_attendance_stats(
+    class_id: Optional[int] = Query(None),
+    db: Session = Depends(get_db)
+):
+    """Get attendance statistics with optional class filtering"""
+    
+    # Base queries
+    student_query = db.query(Student).filter(Student.is_active == True)
+    session_query = db.query(AttendanceSession)
+    record_query = db.query(AttendanceRecord).join(Student)
+    
+    # Apply class filtering if specified
+    if class_id:
+        student_query = student_query.filter(Student.class_id == class_id)
+        session_query = session_query.filter(AttendanceSession.class_id == class_id)
+        record_query = record_query.filter(Student.class_id == class_id)
+    
+    # Calculate statistics
+    total_students = student_query.count()
+    total_sessions = session_query.count()
+    total_records = record_query.count()
+    present_records = record_query.filter(AttendanceRecord.is_present == True).count()
+    
+    # Get recent session info
+    recent_session = session_query.order_by(AttendanceSession.created_at.desc()).first()
+    
+    attendance_rate = (present_records / max(1, total_records)) * 100 if total_records > 0 else 0
+    
+    result = {
+        "total_students": total_students,
+        "total_sessions": total_sessions,
+        "total_records": total_records,
+        "present_records": present_records,
+        "absent_records": total_records - present_records,
+        "present": present_records,  # compatibility
+        "absent": (total_records - present_records),  # compatibility
+        "attendance_rate": round(attendance_rate, 1),
+        "recent_session": {
+            "id": recent_session.id,
+            "name": recent_session.session_name,
+            "class_name": f"{recent_session.class_obj.name} {recent_session.class_obj.section}",
+            "date": recent_session.created_at.isoformat(),
+            "present": recent_session.total_present,
+            "detected": recent_session.total_detected
+        } if recent_session else None
+    }
+    
+    if class_id:
+        class_obj = db.query(Class).filter(Class.id == class_id).first()
+        if class_obj:
+            result["class_info"] = {
+                "id": class_obj.id,
+                "name": class_obj.name,
+                "section": class_obj.section
+            }
+    
+    return result
+
+
+@router.get("/analytics/class-performance")
+async def get_class_performance(db: Session = Depends(get_db)):
+    """Get attendance performance analytics by class"""
+    try:
+        classes = db.query(Class).filter(Class.is_active == True).all()
+        performance_data = []
+        
+        for class_obj in classes:
+            # Get students in this class
+            student_count = db.query(Student).filter(
+                Student.class_id == class_obj.id,
+                Student.is_active == True
+            ).count()
+            
+            # Get attendance sessions for this class
+            session_count = db.query(AttendanceSession).filter(
+                AttendanceSession.class_id == class_obj.id
+            ).count()
+            
+            # Get attendance records for this class
+            total_records = db.query(AttendanceRecord).join(Student).filter(
+                Student.class_id == class_obj.id
+            ).count()
+            
+            present_records = db.query(AttendanceRecord).join(Student).filter(
+                Student.class_id == class_obj.id,
+                AttendanceRecord.is_present == True
+            ).count()
+            
+            attendance_rate = (present_records / max(1, total_records)) * 100 if total_records > 0 else 0
+            
+            performance_data.append({
+                "class_id": class_obj.id,
+                "class_name": class_obj.name,
+                "class_section": class_obj.section,
+                "student_count": student_count,
+                "session_count": session_count,
+                "total_records": total_records,
+                "present_records": present_records,
+                "attendance_rate": round(attendance_rate, 1)
+            })
+        
+        return {
+            "success": True,
+            "class_performance": performance_data
+        }
+        
+    except Exception as e:
+        logger.error(f"Class performance analytics error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to generate class performance analytics")
+
+
+@router.get("/export/excel")
+async def export_attendance_excel(
+    period: str = Query("all", description="Filter period: weekly, monthly, or all"),
+    class_id: Optional[int] = Query(None, description="Optional class filter"),
+    format_type: str = Query("summary", description="Export format: summary, detailed, or analytics"),
+    db: Session = Depends(get_db)
+):
+    """Export beautiful, organized attendance data to Excel"""
+    try:
+        # Create exports directory if it doesn't exist
+        exports_dir = "/home/bitbuggy/Naman_Projects/Dental Attendance/backend/static/exports"
+        os.makedirs(exports_dir, exist_ok=True)
+        
+        # Get class information for filename and filtering
+        class_name = "All_Classes"
+        if class_id:
+            class_obj = db.query(Class).filter(Class.id == class_id).first()
+            if class_obj:
+                class_name = f"{class_obj.name}_{class_obj.section}".replace(" ", "_")
+        
+        # Calculate date filters based on period
+        end_date = datetime.now()
+        if period == "weekly":
+            start_date = end_date - timedelta(weeks=1)
+            period_name = "Weekly"
+        elif period == "monthly":
+            start_date = end_date - timedelta(days=30)
+            period_name = "Monthly"
+        else:  # all
+            start_date = datetime(2020, 1, 1)
+            period_name = "Complete"
+        
+        filename = f"Attendance_{period_name}_{class_name}_{end_date.strftime('%Y%m%d_%H%M%S')}.xlsx"
+        filepath = os.path.join(exports_dir, filename)
+        
+        # Create Excel workbook with beautiful formatting
+        wb = Workbook()
+        wb.remove(wb.active)  # Remove default sheet
+        
+        # Define styling
+        header_font = Font(name='Calibri', size=12, bold=True, color='FFFFFF')
+        header_fill = PatternFill(start_color='2E75B6', end_color='2E75B6', fill_type='solid')
+        subheader_font = Font(name='Calibri', size=11, bold=True, color='2E75B6')
+        normal_font = Font(name='Calibri', size=10)
+        center_align = Alignment(horizontal='center', vertical='center')
+        border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+        
+        # Get filtered data
+        session_query = db.query(AttendanceSession).filter(
+            AttendanceSession.created_at >= start_date,
+            AttendanceSession.created_at <= end_date
+        )
+        if class_id:
+            session_query = session_query.filter(AttendanceSession.class_id == class_id)
+        sessions = session_query.order_by(AttendanceSession.created_at.desc()).all()
+        
+        if not sessions:
+            raise HTTPException(status_code=404, detail="No attendance data found for the specified criteria")
+        
+        # Sheet 1: Attendance Summary (Clean & Beautiful)
+        ws_summary = wb.create_sheet("📊 Attendance Summary")
+        
+        # Header section
+        ws_summary['A1'] = f"🎓 Attendance Report - {period_name}"
+        ws_summary['A1'].font = Font(name='Calibri', size=16, bold=True, color='2E75B6')
+        ws_summary.merge_cells('A1:F1')
+        
+        ws_summary['A2'] = f"📅 Period: {start_date.strftime('%d %b %Y')} - {end_date.strftime('%d %b %Y')}"
+        ws_summary['A2'].font = Font(name='Calibri', size=11, color='666666')
+        ws_summary.merge_cells('A2:F2')
+        
+        if class_id:
+            class_obj = db.query(Class).filter(Class.id == class_id).first()
+            ws_summary['A3'] = f"🏫 Class: {class_obj.name} - Section {class_obj.section}"
+            ws_summary['A3'].font = Font(name='Calibri', size=11, color='666666')
+            ws_summary.merge_cells('A3:F3')
+            start_row = 5
+        else:
+            start_row = 4
+        
+        # Summary headers
+        headers = ['📅 Date', '⏰ Session', '🏫 Class', '👥 Total', '✅ Present', '📊 Rate %']
+        for col, header in enumerate(headers, 1):
+            cell = ws_summary.cell(row=start_row, column=col, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = center_align
+            cell.border = border
+        
+        # Summary data
+        for idx, session in enumerate(sessions, start_row + 1):
+            class_obj = db.query(Class).filter(Class.id == session.class_id).first()
+            class_display = f"{class_obj.name} {class_obj.section}" if class_obj else "Unknown"
+            
+            attendance_rate = round((session.total_present / max(1, session.total_detected)) * 100, 1)
+            
+            row_data = [
+                session.created_at.strftime('%d-%m-%Y'),
+                session.session_name[:30] + '...' if len(session.session_name) > 30 else session.session_name,
+                class_display,
+                session.total_detected,
+                session.total_present,
+                f"{attendance_rate}%"
+            ]
+            
+            for col, value in enumerate(row_data, 1):
+                cell = ws_summary.cell(row=idx, column=col, value=value)
+                cell.font = normal_font
+                cell.alignment = center_align
+                cell.border = border
+                
+                # Color coding for attendance rate
+                if col == 6:  # Attendance rate column
+                    if attendance_rate >= 80:
+                        cell.fill = PatternFill(start_color='D4EDDA', end_color='D4EDDA', fill_type='solid')
+                    elif attendance_rate >= 60:
+                        cell.fill = PatternFill(start_color='FFF3CD', end_color='FFF3CD', fill_type='solid')
+                    else:
+                        cell.fill = PatternFill(start_color='F8D7DA', end_color='F8D7DA', fill_type='solid')
+        
+        # Auto-fit columns
+        for column in ws_summary.columns:
+            max_length = 0
+            column_letter = get_column_letter(column[0].column)
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 25)
+            ws_summary.column_dimensions[column_letter].width = adjusted_width
+        
+        # Sheet 2: Student Attendance Analytics
+        ws_analytics = wb.create_sheet("📈 Student Analytics")
+        
+        # Get student statistics
+        students_query = db.query(Student).filter(Student.is_active == True)
+        if class_id:
+            students_query = students_query.filter(Student.class_id == class_id)
+        
+        student_analytics = []
+        for student in students_query.all():
+            # Get student's attendance in the period
+            student_records = db.query(AttendanceRecord).join(AttendanceSession).filter(
+                AttendanceRecord.student_id == student.id,
+                AttendanceSession.created_at >= start_date,
+                AttendanceSession.created_at <= end_date
+            )
+            if class_id:
+                student_records = student_records.filter(AttendanceSession.class_id == class_id)
+            
+            total_sessions = student_records.count()
+            present_sessions = student_records.filter(AttendanceRecord.is_present == True).count()
+            
+            if total_sessions > 0:
+                attendance_rate = round((present_sessions / total_sessions) * 100, 1)
+                status = "🟢 Excellent" if attendance_rate >= 90 else "🟡 Good" if attendance_rate >= 75 else "🟠 Average" if attendance_rate >= 60 else "🔴 Poor"
+                
+                student_analytics.append({
+                    'Student Name': student.name,
+                    'Roll No': student.roll_no,
+                    'Total Sessions': total_sessions,
+                    'Present': present_sessions,
+                    'Absent': total_sessions - present_sessions,
+                    'Attendance %': attendance_rate,
+                    'Status': status
+                })
+        
+        # Sort by attendance rate
+        student_analytics.sort(key=lambda x: x['Attendance %'], reverse=True)
+        
+        # Header
+        ws_analytics['A1'] = f"📈 Student Performance Analytics"
+        ws_analytics['A1'].font = Font(name='Calibri', size=16, bold=True, color='2E75B6')
+        ws_analytics.merge_cells('A1:G1')
+        
+        # Analytics headers
+        analytics_headers = ['👤 Student Name', '🆔 Roll No', '📅 Total Sessions', '✅ Present', '❌ Absent', '📊 Attendance %', '⭐ Status']
+        for col, header in enumerate(analytics_headers, 1):
+            cell = ws_analytics.cell(row=3, column=col, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = center_align
+            cell.border = border
+        
+        # Analytics data
+        for idx, student_data in enumerate(student_analytics, 4):
+            for col, (key, value) in enumerate(student_data.items(), 1):
+                cell = ws_analytics.cell(row=idx, column=col, value=value)
+                cell.font = normal_font
+                cell.alignment = center_align
+                cell.border = border
+                
+                # Color coding based on attendance percentage
+                if key == 'Attendance %':
+                    if value >= 90:
+                        cell.fill = PatternFill(start_color='D4EDDA', end_color='D4EDDA', fill_type='solid')
+                    elif value >= 75:
+                        cell.fill = PatternFill(start_color='D1ECF1', end_color='D1ECF1', fill_type='solid')
+                    elif value >= 60:
+                        cell.fill = PatternFill(start_color='FFF3CD', end_color='FFF3CD', fill_type='solid')
+                    else:
+                        cell.fill = PatternFill(start_color='F8D7DA', end_color='F8D7DA', fill_type='solid')
+        
+        # Auto-fit columns for analytics
+        for column in ws_analytics.columns:
+            max_length = 0
+            column_letter = get_column_letter(column[0].column)
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 30)
+            ws_analytics.column_dimensions[column_letter].width = adjusted_width
+        
+        # Sheet 3: Detailed Records (Only if requested)
+        if format_type == "detailed":
+            ws_detailed = wb.create_sheet("📋 Detailed Records")
+            
+            # Get all attendance records
+            detailed_records = []
+            for session in sessions:
+                records = db.query(AttendanceRecord).join(Student).filter(
+                    AttendanceRecord.session_id == session.id
+                ).all()
+                
+                class_obj = db.query(Class).filter(Class.id == session.class_id).first()
+                class_name = f"{class_obj.name} {class_obj.section}" if class_obj else "Unknown"
+                
+                for record in records:
+                    detailed_records.append({
+                        'Date': session.created_at.strftime('%d-%m-%Y'),
+                        'Session': session.session_name,
+                        'Class': class_name,
+                        'Student': record.student.name,
+                        'Roll No': record.student.roll_no,
+                        'Status': '✅ Present' if record.is_present else '❌ Absent',
+                        'Confidence': f"{record.confidence:.2f}" if record.confidence else "N/A"
+                    })
+            
+            # Headers for detailed records
+            ws_detailed['A1'] = "📋 Detailed Attendance Records"
+            ws_detailed['A1'].font = Font(name='Calibri', size=16, bold=True, color='2E75B6')
+            ws_detailed.merge_cells('A1:G1')
+            
+            detailed_headers = ['📅 Date', '📝 Session', '🏫 Class', '👤 Student', '🆔 Roll No', '✅ Status', '🎯 Confidence']
+            for col, header in enumerate(detailed_headers, 1):
+                cell = ws_detailed.cell(row=3, column=col, value=header)
+                cell.font = header_font
+                cell.fill = header_fill
+                cell.alignment = center_align
+                cell.border = border
+            
+            # Detailed data
+            for idx, record in enumerate(detailed_records, 4):
+                for col, (key, value) in enumerate(record.items(), 1):
+                    cell = ws_detailed.cell(row=idx, column=col, value=value)
+                    cell.font = normal_font
+                    cell.alignment = center_align
+                    cell.border = border
+            
+            # Auto-fit columns
+            for column in ws_detailed.columns:
+                max_length = 0
+                column_letter = get_column_letter(column[0].column)
+                for cell in column:
+                    try:
+                        if len(str(cell.value)) > max_length:
+                            max_length = len(str(cell.value))
+                    except:
+                        pass
+                adjusted_width = min(max_length + 2, 25)
+                ws_detailed.column_dimensions[column_letter].width = adjusted_width
+        
+        # Save the workbook
+        wb.save(filepath)
+        
+        logger.info(f"Beautiful Excel export created: {filename}")
+        
+        return FileResponse(
+            path=filepath,
+            filename=filename,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Excel export error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to export attendance data: {str(e)}")
+
+
+@router.get("/export/csv")
+async def export_attendance_csv(
+    period: str = Query("all", description="Filter period: weekly, monthly, or all"),
+    class_id: Optional[int] = Query(None, description="Optional class filter"),
+    db: Session = Depends(get_db)
+):
+    """Export attendance data to CSV format"""
+    try:
+        # Calculate date filters
+        end_date = datetime.now()
+        if period == "weekly":
+            start_date = end_date - timedelta(weeks=1)
+        elif period == "monthly":
+            start_date = end_date - timedelta(days=30)
+        else:
+            start_date = datetime(2020, 1, 1)
+        
+        # Get class name for filename
+        class_name = "All_Classes"
+        if class_id:
+            class_obj = db.query(Class).filter(Class.id == class_id).first()
+            if class_obj:
+                class_name = f"{class_obj.name}_{class_obj.section}".replace(" ", "_")
+        
+        # Get student analytics data
+        students_query = db.query(Student).filter(Student.is_active == True)
+        if class_id:
+            students_query = students_query.filter(Student.class_id == class_id)
+        
+        csv_data = []
+        for student in students_query.all():
+            student_records = db.query(AttendanceRecord).join(AttendanceSession).filter(
+                AttendanceRecord.student_id == student.id,
+                AttendanceSession.created_at >= start_date,
+                AttendanceSession.created_at <= end_date
+            )
+            if class_id:
+                student_records = student_records.filter(AttendanceSession.class_id == class_id)
+            
+            total_sessions = student_records.count()
+            present_sessions = student_records.filter(AttendanceRecord.is_present == True).count()
+            
+            if total_sessions > 0:
+                attendance_rate = round((present_sessions / total_sessions) * 100, 1)
+                csv_data.append({
+                    'Student_Name': student.name,
+                    'Roll_Number': student.roll_no,
+                    'PRN': student.prn,
+                    'Total_Sessions': total_sessions,
+                    'Present_Sessions': present_sessions,
+                    'Absent_Sessions': total_sessions - present_sessions,
+                    'Attendance_Percentage': attendance_rate
+                })
+        
+        # Create CSV content
+        output = io.StringIO()
+        if csv_data:
+            fieldnames = csv_data[0].keys()
+            writer = csv.DictWriter(output, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(csv_data)
+        
+        # Create response
+        filename = f"Attendance_{period}_{class_name}_{end_date.strftime('%Y%m%d')}.csv"
+        
+        return StreamingResponse(
+            io.BytesIO(output.getvalue().encode('utf-8')),
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+        
+    except Exception as e:
+        logger.error(f"CSV export error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to export CSV: {str(e)}")
+
+
+@router.get("/export/pdf-summary")
+async def export_attendance_pdf_summary(
+    period: str = Query("all", description="Filter period: weekly, monthly, or all"),
+    class_id: Optional[int] = Query(None, description="Optional class filter"),
+    db: Session = Depends(get_db)
+):
+    """Export attendance summary as PDF (placeholder for future implementation)"""
+    # This would require additional dependencies like reportlab
+    # For now, redirect to Excel export
+    return await export_attendance_excel(period, class_id, "summary", db)
+
+
+@router.get("/classes/available")
+async def get_available_classes_for_export(db: Session = Depends(get_db)):
+    """Get list of classes that have attendance data"""
+    try:
+        # Get classes that have attendance sessions
+        classes_with_data = db.query(Class).join(AttendanceSession).filter(
+            Class.is_active == True
+        ).distinct().all()
+        
+        class_list = []
+        for class_obj in classes_with_data:
+            # Count sessions and students for this class
+            session_count = db.query(AttendanceSession).filter(
+                AttendanceSession.class_id == class_obj.id
+            ).count()
+            
+            student_count = db.query(Student).filter(
+                Student.class_id == class_obj.id,
+                Student.is_active == True
+            ).count()
+            
+            class_list.append({
+                "id": class_obj.id,
+                "name": class_obj.name,
+                "section": class_obj.section,
+                "display_name": f"{class_obj.name} - Section {class_obj.section}",
+                "session_count": session_count,
+                "student_count": student_count
+            })
+        
+        return {
+            "success": True,
+            "classes": sorted(class_list, key=lambda x: x["display_name"])
+        }
+        
+    except Exception as e:
+        logger.error(f"Error fetching available classes: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to fetch available classes")
+
+
+@router.get("/export/summary")
+async def get_export_summary(
+    period: str = Query("all", description="Filter period: weekly, monthly, or all"),
+    class_id: Optional[int] = Query(None, description="Optional class filter"),
+    db: Session = Depends(get_db)
+):
+    """Get enhanced summary of data available for export"""
+    try:
+        # Calculate date filters based on period
+        end_date = datetime.now()
+        if period == "weekly":
+            start_date = end_date - timedelta(weeks=1)
+            period_display = "Last 7 Days"
+        elif period == "monthly":
+            start_date = end_date - timedelta(days=30)
+            period_display = "Last 30 Days"
+        else:  # all
+            start_date = datetime(2020, 1, 1)
+            period_display = "All Time"
+        
+        # Count sessions and records
+        session_query = db.query(AttendanceSession).filter(
+            AttendanceSession.created_at >= start_date,
+            AttendanceSession.created_at <= end_date
+        )
+        
+        if class_id:
+            session_query = session_query.filter(AttendanceSession.class_id == class_id)
+        
+        total_sessions = session_query.count()
+        
+        # Count total attendance records
+        record_query = db.query(AttendanceRecord).join(AttendanceSession).filter(
+            AttendanceSession.created_at >= start_date,
+            AttendanceSession.created_at <= end_date
+        )
+        
+        if class_id:
+            record_query = record_query.filter(AttendanceSession.class_id == class_id)
+        
+        total_records = record_query.count()
+        present_records = record_query.filter(AttendanceRecord.is_present == True).count()
+        
+        # Get class info if specific class selected
+        class_info = None
+        if class_id:
+            class_obj = db.query(Class).filter(Class.id == class_id).first()
+            if class_obj:
+                class_info = {
+                    "id": class_obj.id,
+                    "name": class_obj.name,
+                    "section": class_obj.section,
+                    "display_name": f"{class_obj.name} - Section {class_obj.section}"
+                }
+        
+        # Get student count in the filtered data
+        student_query = db.query(Student).filter(Student.is_active == True)
+        if class_id:
+            student_query = student_query.filter(Student.class_id == class_id)
+        total_students = student_query.count()
+        
+        # Calculate attendance insights
+        avg_attendance_rate = round((present_records / max(1, total_records)) * 100, 1)
+        
+        # Determine data quality
+        data_quality = "Excellent" if total_sessions >= 10 else "Good" if total_sessions >= 5 else "Limited"
+        
+        return {
+            "success": True,
+            "export_summary": {
+                "period": period,
+                "period_display": period_display,
+                "start_date": start_date.strftime('%Y-%m-%d'),
+                "end_date": end_date.strftime('%Y-%m-%d'),
+                "class_info": class_info,
+                "statistics": {
+                    "total_sessions": total_sessions,
+                    "total_students": total_students,
+                    "total_records": total_records,
+                    "present_records": present_records,
+                    "absent_records": total_records - present_records,
+                    "overall_attendance_rate": avg_attendance_rate
+                },
+                "insights": {
+                    "data_quality": data_quality,
+                    "avg_sessions_per_day": round(total_sessions / max(1, (end_date - start_date).days), 1) if period != "all" else "N/A",
+                    "most_active_period": period_display
+                },
+                "export_options": [
+                    {
+                        "format": "excel_summary",
+                        "name": "📊 Excel Summary",
+                        "description": "Clean, organized summary with beautiful formatting",
+                        "recommended": True
+                    },
+                    {
+                        "format": "excel_detailed", 
+                        "name": "📋 Excel Detailed",
+                        "description": "Includes individual attendance records"
+                    },
+                    {
+                        "format": "csv",
+                        "name": "📄 CSV Format",
+                        "description": "Simple spreadsheet format for data analysis"
+                    }
+                ]
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Export summary error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get export summary")

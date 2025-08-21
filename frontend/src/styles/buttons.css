@@ -1,0 +1,292 @@
+/* Enhanced Modern Button Styles */
+.modern-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  border: none;
+  border-radius: var(--border-radius-lg);
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: var(--transition);
+  text-decoration: none;
+  position: relative;
+  overflow: hidden;
+  white-space: nowrap;
+  min-height: 44px;
+  box-shadow: var(--shadow);
+}
+
+.modern-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: var(--transition-slow);
+}
+
+.modern-btn:hover::before {
+  left: 100%;
+}
+
+.modern-btn.small {
+  padding: 0.75rem 1.25rem;
+  font-size: 0.875rem;
+  min-height: 36px;
+}
+
+.modern-btn.large {
+  padding: 1.25rem 2rem;
+  font-size: 1.1rem;
+  min-height: 52px;
+}
+
+.modern-btn.primary {
+  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+  color: white;
+  box-shadow: 
+    var(--shadow-md),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.modern-btn.primary:hover {
+  background: linear-gradient(135deg, var(--primary-dark), var(--secondary-dark));
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px) scale(1.02);
+}
+
+.modern-btn.primary:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.modern-btn.secondary {
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text-color);
+  border: 2px solid var(--border-color);
+  font-weight: 600;
+  backdrop-filter: blur(10px);
+}
+
+.modern-btn.secondary:hover {
+  background: rgba(255, 255, 255, 1);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.modern-btn.success {
+  background: linear-gradient(135deg, var(--success-color), var(--success-light));
+  color: white;
+  font-weight: 600;
+  box-shadow: var(--shadow);
+}
+
+.modern-btn.success:hover {
+  background: #059669;
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+}
+
+.modern-btn.warning {
+  background: var(--warning-color);
+  color: white;
+  font-weight: 700;
+  box-shadow: var(--shadow);
+}
+
+.modern-btn.warning:hover {
+  background: #d97706;
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+}
+
+.modern-btn.danger {
+  background: var(--danger-color);
+  color: white;
+  font-weight: 700;
+  box-shadow: var(--shadow);
+}
+
+.modern-btn.danger:hover {
+  background: #dc2626;
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+}
+
+.modern-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.btn-icon {
+  font-size: 1em;
+}
+
+/* Submit Button */
+.submit-btn {
+  background: linear-gradient(135deg, #3498db 0%, #9b59b6 100%);
+  color: white;
+  border: none;
+  padding: 1.5rem 3rem;
+  font-size: 1.2rem;
+  font-weight: 700;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  min-width: 250px;
+  position: relative;
+  overflow: hidden;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  box-shadow: 
+    0 8px 32px rgba(52, 152, 219, 0.3),
+    0 0 0 1px rgba(255,255,255,0.1);
+  display: block;
+  margin: 2rem auto 0;
+}
+
+.submit-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  transition: left 0.5s ease;
+}
+
+.submit-btn:hover {
+  transform: translateY(-4px);
+  box-shadow: 
+    0 12px 48px rgba(52, 152, 219, 0.4),
+    0 0 0 1px rgba(255,255,255,0.2);
+  background: linear-gradient(135deg, #2980b9 0%, #8e44ad 100%);
+}
+
+.submit-btn:hover::before {
+  left: 100%;
+}
+
+.submit-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+  animation: processing 1.5s infinite;
+}
+
+@keyframes processing {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+/* Link Button */
+.link-btn {
+  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-weight: 600;
+  transition: var(--transition);
+  box-shadow: var(--shadow);
+}
+
+.link-btn:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+}
+
+/* CTA Button */
+.cta-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 2rem;
+  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+  color: white;
+  border: none;
+  border-radius: var(--border-radius);
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: var(--transition);
+  box-shadow: var(--shadow);
+}
+
+.cta-button:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+}
+
+.button-icon {
+  font-size: 1.2rem;
+}
+
+/* Class Management Buttons */
+.create-class-btn {
+  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-weight: 600;
+  transition: var(--transition);
+  margin-bottom: 15px;
+}
+
+.create-class-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.delete-class-btn {
+  background: linear-gradient(135deg, #e74c3c, #c0392b);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-weight: 600;
+  transition: var(--transition);
+  margin-bottom: 15px;
+  margin-left: 10px;
+}
+
+.delete-class-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 15px rgba(231, 76, 60, 0.3);
+}
+
+.delete-btn {
+  background: linear-gradient(135deg, #e74c3c, #c0392b);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-weight: 600;
+  transition: var(--transition);
+}
+
+.delete-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 15px rgba(231, 76, 60, 0.3);
+}
+
+.delete-btn:disabled {
+  background: #bdc3c7;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}

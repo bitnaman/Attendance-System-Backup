@@ -1,0 +1,144 @@
+/* Enhanced Modern Message Component */
+.modern-message {
+  position: fixed;
+  top: 2rem;
+  right: 2rem;
+  max-width: 450px;
+  padding: 1.5rem 2rem;
+  border-radius: var(--border-radius-xl);
+  box-shadow: 
+    var(--shadow-xl),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  z-index: 1000;
+  animation: slideInRight 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(25px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: var(--transition);
+}
+
+.modern-message:hover {
+  transform: translateX(-5px) scale(1.02);
+}
+
+.modern-message.info {
+  background: linear-gradient(135deg, 
+    rgba(59, 130, 246, 0.95), 
+    rgba(79, 172, 254, 0.95));
+  color: white;
+  border-left: 4px solid rgba(37, 99, 235, 0.8);
+}
+
+.modern-message.success {
+  background: linear-gradient(135deg, 
+    rgba(34, 197, 94, 0.95), 
+    rgba(52, 211, 153, 0.95));
+  color: white;
+  border-left: 4px solid rgba(22, 163, 74, 0.8);
+}
+
+.modern-message.warning {
+  background: linear-gradient(135deg, 
+    rgba(245, 158, 11, 0.95), 
+    rgba(251, 191, 36, 0.95));
+  color: white;
+  border-left: 4px solid rgba(217, 119, 6, 0.8);
+}
+
+.modern-message.error {
+  background: linear-gradient(135deg, 
+    rgba(239, 68, 68, 0.95), 
+    rgba(248, 113, 113, 0.95));
+  color: white;
+  border-left: 4px solid rgba(220, 38, 38, 0.8);
+}
+
+.message-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.message-icon {
+  font-size: 1.5rem;
+}
+
+.message-text {
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.modern-close {
+  background: none;
+  border: none;
+  color: currentColor;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 50%;
+  transition: var(--transition-fast);
+  opacity: 0.8;
+}
+
+.modern-close:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Auto-dismiss animation */
+.modern-message.dismissing {
+  animation: slideOutRight 0.3s ease-in forwards;
+}
+
+@keyframes slideOutRight {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+}
+
+/* Message container for multiple messages */
+.message-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  max-width: 400px;
+}
+
+/* Loading message variant */
+.modern-message.loading {
+  background: rgba(103, 126, 234, 0.95);
+  color: white;
+  border-left: 4px solid var(--primary-color);
+}
+
+.modern-message.loading .message-icon {
+  animation: spin 1s linear infinite;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .modern-message {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+    max-width: none;
+  }
+  
+  .message-container {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+    max-width: none;
+  }
+}

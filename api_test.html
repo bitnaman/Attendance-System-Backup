@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Connection Test</title>
+</head>
+<body>
+    <h1>Dental Attendance API Connection Test</h1>
+    <div id="results"></div>
+    
+    <script>
+        const API_BASE = 'http://127.0.0.1:8000';
+        const results = document.getElementById('results');
+        
+        async function testAPI() {
+            const tests = [
+                { name: 'Health Check', url: '/health' },
+                { name: 'Students', url: '/student/' },
+                { name: 'Classes', url: '/student/classes' },
+                { name: 'Attendance Sessions', url: '/attendance/sessions' }
+            ];
+            
+            for (const test of tests) {
+                try {
+                    const response = await fetch(`${API_BASE}${test.url}`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        results.innerHTML += `<p style="color: green;">✅ ${test.name}: Success (${JSON.stringify(data).substring(0, 100)}...)</p>`;
+                    } else {
+                        results.innerHTML += `<p style="color: red;">❌ ${test.name}: Failed with status ${response.status}</p>`;
+                    }
+                } catch (error) {
+                    results.innerHTML += `<p style="color: red;">❌ ${test.name}: Network Error - ${error.message}</p>`;
+                }
+            }
+        }
+        
+        testAPI();
+    </script>
+</body>
+</html>

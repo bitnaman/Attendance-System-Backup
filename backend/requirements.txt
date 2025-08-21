@@ -1,0 +1,27 @@
+# Core FastAPI dependencies
+fastapi
+uvicorn[standard]
+
+# Database  
+sqlalchemy>=2.0
+psycopg2-binary  # PostgreSQL adapter
+
+# Image processing and Face Recognition
+opencv-python-headless
+numpy
+scikit-learn
+scikit-image
+deepface
+tensorflow[and-cuda]  # Latest TensorFlow with CUDA support
+
+# File handling and utilities
+python-multipart
+aiofiles
+python-jose[cryptography]
+passlib[bcrypt]
+jinja2
+python-dotenv
+
+# Excel export functionality
+openpyxl
+pandas

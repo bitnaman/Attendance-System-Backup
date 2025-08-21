@@ -1,0 +1,433 @@
+/* Backup Manager Component Styles */
+.backup-manager {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+.backup-section {
+  background: white;
+  padding: var(--spacing-lg);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow);
+}
+
+.backup-section h3 {
+  margin-bottom: var(--spacing-md);
+  color: var(--dark-color);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.backup-section-icon {
+  font-size: 1.5rem;
+  color: var(--primary-color);
+}
+
+/* Backup Actions */
+.backup-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.backup-action-card {
+  background: var(--light-gray);
+  padding: var(--spacing-md);
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-color);
+  transition: var(--transition);
+}
+
+.backup-action-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+.backup-action-card h4 {
+  color: var(--dark-color);
+  margin-bottom: var(--spacing-sm);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.backup-action-card p {
+  color: var(--text-color);
+  margin-bottom: var(--spacing-md);
+  line-height: 1.5;
+}
+
+.backup-action-card .modern-btn {
+  width: 100%;
+  justify-content: center;
+}
+
+/* Backup Status */
+.backup-status {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: var(--border-radius);
+  margin-bottom: var(--spacing-md);
+}
+
+.backup-status.error {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.backup-status.warning {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.backup-status-icon {
+  font-size: 1.25rem;
+}
+
+.backup-status.success .backup-status-icon {
+  color: var(--success-color);
+}
+
+.backup-status.error .backup-status-icon {
+  color: var(--error-color);
+}
+
+.backup-status.warning .backup-status-icon {
+  color: var(--warning-color);
+}
+
+.backup-status-text {
+  flex: 1;
+  font-weight: 500;
+}
+
+.backup-status.success .backup-status-text {
+  color: var(--success-color);
+}
+
+.backup-status.error .backup-status-text {
+  color: var(--error-color);
+}
+
+.backup-status.warning .backup-status-text {
+  color: var(--warning-color);
+}
+
+/* Backup History */
+.backup-history {
+  margin-top: var(--spacing-lg);
+}
+
+.backup-history h4 {
+  margin-bottom: var(--spacing-md);
+  color: var(--dark-color);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.backup-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.backup-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-md);
+  background: var(--light-gray);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  transition: var(--transition);
+}
+
+.backup-item:hover {
+  background: rgba(103, 126, 234, 0.05);
+  border-color: rgba(103, 126, 234, 0.2);
+}
+
+.backup-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.backup-name {
+  font-weight: 600;
+  color: var(--dark-color);
+}
+
+.backup-meta {
+  font-size: 0.875rem;
+  color: var(--text-color);
+  display: flex;
+  gap: var(--spacing-md);
+}
+
+.backup-size {
+  color: var(--primary-color);
+  font-weight: 500;
+}
+
+.backup-actions-list {
+  display: flex;
+  gap: var(--spacing-xs);
+}
+
+.backup-action-btn {
+  padding: 0.5rem;
+  border: none;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  min-width: 32px;
+  height: 32px;
+}
+
+.backup-action-btn.download {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
+.backup-action-btn.download:hover {
+  background: rgba(59, 130, 246, 0.2);
+  transform: scale(1.05);
+}
+
+.backup-action-btn.restore {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--success-color);
+}
+
+.backup-action-btn.restore:hover {
+  background: rgba(16, 185, 129, 0.2);
+  transform: scale(1.05);
+}
+
+.backup-action-btn.delete {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--error-color);
+}
+
+.backup-action-btn.delete:hover {
+  background: rgba(239, 68, 68, 0.2);
+  transform: scale(1.05);
+}
+
+/* Backup Progress */
+.backup-progress {
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: rgba(103, 126, 234, 0.05);
+  border: 1px solid rgba(103, 126, 234, 0.2);
+  border-radius: var(--border-radius);
+}
+
+.progress-bar-container {
+  background: var(--border-color);
+  border-radius: var(--border-radius);
+  height: 8px;
+  overflow: hidden;
+  margin: var(--spacing-sm) 0;
+}
+
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+  border-radius: var(--border-radius);
+  transition: width 0.3s ease;
+  position: relative;
+}
+
+.progress-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.progress-text {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.875rem;
+  color: var(--text-color);
+}
+
+/* Auto Backup Settings */
+.auto-backup-settings {
+  background: rgba(245, 158, 11, 0.05);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-md);
+  margin-top: var(--spacing-md);
+}
+
+.auto-backup-settings h5 {
+  color: var(--warning-color);
+  margin-bottom: var(--spacing-sm);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.setting-group {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-sm);
+}
+
+.setting-label {
+  font-weight: 500;
+  color: var(--dark-color);
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 24px;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--border-color);
+  transition: var(--transition);
+  border-radius: 24px;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background: white;
+  transition: var(--transition);
+  border-radius: 50%;
+}
+
+input:checked + .toggle-slider {
+  background: var(--primary-color);
+}
+
+input:checked + .toggle-slider:before {
+  transform: translateX(26px);
+}
+
+/* Storage Info */
+.storage-info {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-lg);
+}
+
+.storage-card {
+  background: var(--light-gray);
+  padding: var(--spacing-md);
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-color);
+  text-align: center;
+}
+
+.storage-icon {
+  font-size: 2rem;
+  color: var(--primary-color);
+  margin-bottom: var(--spacing-sm);
+}
+
+.storage-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--dark-color);
+  display: block;
+}
+
+.storage-label {
+  font-size: 0.875rem;
+  color: var(--text-color);
+  margin-top: var(--spacing-xs);
+}
+
+/* Empty State */
+.empty-backups {
+  text-align: center;
+  padding: var(--spacing-xl);
+  color: var(--text-color);
+}
+
+.empty-backups-icon {
+  font-size: 4rem;
+  opacity: 0.5;
+  margin-bottom: var(--spacing-md);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .backup-actions {
+    grid-template-columns: 1fr;
+  }
+  
+  .backup-item {
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    align-items: stretch;
+  }
+  
+  .backup-meta {
+    flex-direction: column;
+    gap: var(--spacing-xs);
+  }
+  
+  .backup-actions-list {
+    justify-content: center;
+  }
+  
+  .storage-info {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+  
+  .setting-group {
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    align-items: stretch;
+  }
+}
