@@ -12,7 +12,10 @@
 @import './styles/forms.css';
 @import './styles/cards.css';
 @import './styles/messages.css';
+/* Import modular attendance styles */
 @import './styles/attendance.css';
+@import './styles/attendance-stats.css';
+@import './styles/attendance-export.css';
 @import './styles/states.css';
 @import './styles/utilities.css';
 @import './styles/register-student.css';

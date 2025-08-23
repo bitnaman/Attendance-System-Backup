@@ -347,11 +347,18 @@ async def get_students_simple(
             {
                 "id": s.id,
                 "name": s.name,
+                "age": s.age,
                 "roll_no": s.roll_no,
+                "prn": s.prn,
+                "seat_no": s.seat_no,
+                "email": s.email,
+                "phone": s.phone,
+                "class_id": s.class_id,
                 "class_name": s.class_obj.name,
                 "class_section": s.class_section,
                 "is_active": s.is_active,
                 "created_at": s.created_at.isoformat() if s.created_at else None,
+                "updated_at": s.updated_at.isoformat() if s.updated_at else None,
                 "photo_url": f"/static/dataset/{s.name.replace(' ', '_')}_{s.roll_no}/face.jpg" if s.photo_path else None
             }
             for s in students

@@ -666,6 +666,7 @@ export default function ViewAttendance({
                           <div className="col-date">{dateTime.date}</div>
                           <div className="col-stats">
                             <span className="stat-present">✅ {session.total_present}</span>
+                            <span className="stat-absent">❌ {session.total_detected - session.total_present}</span>
                             <span className="stat-total">👥 {session.total_detected}</span>
                           </div>
                           <div className="col-rate">
