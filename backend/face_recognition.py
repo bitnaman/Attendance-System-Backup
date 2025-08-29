@@ -1,6 +1,6 @@
 """
 PostgreSQL-Compatible Face Recognition with Class-Based Filtering.
-Enhanced for class-specific attendance marking.
+Enhanced for class-specific attendance marking with configurable logging.
 """
 import os
 import cv2
@@ -9,6 +9,8 @@ import logging
 import shutil
 from typing import Dict, Any, List, Tuple, Optional
 from deepface import DeepFace
+from utils.logging_utils import create_throttled_logger
+from config import LOG_THROTTLE_MS
 
 # --- Enhanced Configuration Constants for Better Accuracy ---
 RECOGNITION_MODEL = "Facenet512"  # A very powerful and common model
@@ -17,7 +19,8 @@ DISTANCE_THRESHOLD = 20.0         # Distance threshold for matching
 MIN_CONFIDENCE_THRESHOLD = 0.10   # Minimum confidence to consider a match (10%)
 ENHANCED_PREPROCESSING = True      # Enable enhanced image preprocessing
 
-logger = logging.getLogger(__name__)
+# Create throttled logger for face recognition
+logger = create_throttled_logger(__name__, LOG_THROTTLE_MS)
 
 
 class ClassBasedFaceRecognizer:
@@ -269,7 +272,7 @@ class ClassBasedFaceRecognizer:
                 enforce_detection=True
             )
             
-            embedding = embedding_obj[0]["embedding"]
+            embedding = embedding_obj[0]["embedding"]  # type: ignore
             np.save(embedding_path, embedding)
             logger.info(f"Embedding saved to {embedding_path}")
 
@@ -309,7 +312,7 @@ class ClassBasedFaceRecognizer:
                                     align=True,  # Enable face alignment for consistency
                                     normalization='Facenet2018'  # Use advanced normalization
                                 )
-                                all_embeddings.append(np.array(emb_obj[0]["embedding"]))
+                                all_embeddings.append(np.array(emb_obj[0]["embedding"]))  # type: ignore
                                 valid_images_count += 1
                                 embedding_extracted = True
                                 logger.info(f"✅ Successfully extracted embedding from {p} using {detector}")
@@ -328,7 +331,7 @@ class ClassBasedFaceRecognizer:
                             detector_backend=DETECTOR_BACKEND,
                             enforce_detection=True
                         )
-                        all_embeddings.append(np.array(emb_obj[0]["embedding"]))
+                        all_embeddings.append(np.array(emb_obj[0]["embedding"]))  # type: ignore
                         valid_images_count += 1
                         
                 except Exception as e:
@@ -381,6 +384,9 @@ class ClassBasedFaceRecognizer:
             image_path: Path to the classroom photo
             class_id: If provided, only match against students from this class
         """
+        import time
+        start_time = time.time()
+        
         # Determine which student database to use
         if class_id and self.current_class_students:
             students_to_match = self.current_class_students
@@ -397,6 +403,7 @@ class ClassBasedFaceRecognizer:
                 "error": "No students loaded in the recognizer."
             }
 
+        face_detection_start = time.time()
         try:
             detected_faces = DeepFace.extract_faces(
                 img_path=image_path,
@@ -406,6 +413,9 @@ class ClassBasedFaceRecognizer:
         except Exception as e:
             logger.error(f"DeepFace.extract_faces failed for image {image_path}: {e}")
             return {"error": f"Face extraction failed: {e}"}
+        
+        face_detection_time = time.time() - face_detection_start
+        logger.info(f"⏱️ Face Detection: {face_detection_time:.2f}s - Found {len(detected_faces)} faces")
 
         results = {
             "total_faces_detected": len(detected_faces),
@@ -416,12 +426,19 @@ class ClassBasedFaceRecognizer:
         
         if not detected_faces:
             logger.info("No faces detected in the provided image.")
+            total_time = time.time() - start_time
+            logger.info(f"⏱️ Total Processing Time: {total_time:.2f}s")
             return results
 
         known_embeddings = [student['embedding'] for student in students_to_match]
         matched_student_indices = set()
+        
+        recognition_start = time.time()
+        faces_processed = 0
 
         for face_obj in detected_faces:
+            faces_processed += 1
+            face_start = time.time()
             facial_area = face_obj.get('facial_area', {})
             try:
                 # Enhanced face recognition with multiple validation approaches
@@ -447,7 +464,7 @@ class ClassBasedFaceRecognizer:
                                 normalization=method['normalization']
                             )
                             
-                            candidate_embedding = embedding_obj[0]["embedding"]
+                            candidate_embedding = embedding_obj[0]["embedding"]  # type: ignore
                             
                             # Quality check: compute embedding stability/confidence
                             embedding_norm = np.linalg.norm(candidate_embedding)
@@ -470,7 +487,7 @@ class ClassBasedFaceRecognizer:
                         enforce_detection=False, 
                         detector_backend='skip'
                     )
-                    detected_embedding = embedding_obj[0]["embedding"]
+                    detected_embedding = embedding_obj[0]["embedding"]  # type: ignore
                     
             except Exception as e:
                 logger.warning(f"Could not generate embedding for a detected face: {e}")
@@ -508,7 +525,7 @@ class ClassBasedFaceRecognizer:
                 })
             
             if best_student_idx != -1:
-                logger.info(f"🎯 Best match: '{students_to_match[best_student_idx]['name']}' distance={min_distance:.4f}")
+                logger.debug(f"🎯 Best match: '{students_to_match[best_student_idx]['name']}' distance={min_distance:.4f}")
 
             # Enhanced confidence calculation with stricter thresholds
             if best_student_idx != -1 and min_distance < DISTANCE_THRESHOLD:
@@ -517,8 +534,15 @@ class ClassBasedFaceRecognizer:
                 # Multi-factor confidence calculation
                 base_confidence = float(max(0, 1 - (min_distance / DISTANCE_THRESHOLD)))
                 
+                # Find the correct confidence score entry for the best match
+                best_confidence_entry = None
+                for conf in confidence_scores:
+                    if conf['student_idx'] == best_student_idx:
+                        best_confidence_entry = conf
+                        break
+                
                 # Additional confidence factors
-                cosine_sim = confidence_scores[best_student_idx]['cosine_sim']
+                cosine_sim = best_confidence_entry['cosine_sim'] if best_confidence_entry else 0.0
                 cosine_confidence = max(0, cosine_sim)  # Cosine similarity (0 to 1)
                 
                 # Combined confidence (weighted average)
@@ -537,16 +561,35 @@ class ClassBasedFaceRecognizer:
                         'cosine_similarity': float(cosine_sim)
                     })
                     matched_student_indices.add(best_student_idx)
-                    logger.info(f"✅ MATCH: {matched_student['name']} (confidence: {final_confidence:.3f}, euclidean: {min_distance:.2f}, cosine: {cosine_sim:.3f})")
+                    logger.debug(f"✅ MATCH: {matched_student['name']} (confidence: {final_confidence:.3f}, euclidean: {min_distance:.2f}, cosine: {cosine_sim:.3f})")
                 else:
                     results["unidentified_faces_count"] += 1
-                    logger.info(f"❌ REJECTED: {matched_student['name']} - confidence too low ({final_confidence:.3f} < {MIN_CONFIDENCE_THRESHOLD})")
+                    logger.debug(f"❌ REJECTED: {matched_student['name']} - confidence too low ({final_confidence:.3f} < {MIN_CONFIDENCE_THRESHOLD})")
             else:
                 results["unidentified_faces_count"] += 1
                 if best_student_idx != -1:
-                    logger.info(f"❌ REJECTED: Distance too high ({min_distance:.2f} >= {DISTANCE_THRESHOLD})")
+                    logger.debug(f"❌ REJECTED: Distance too high ({min_distance:.2f} >= {DISTANCE_THRESHOLD})")
                 else:
-                    logger.info(f"❌ NO MATCH: No suitable candidate found")
+                    logger.debug(f"❌ NO MATCH: No suitable candidate found")
+            
+            # Log timing for this face
+            face_time = time.time() - face_start
+            logger.debug(f"⏱️ Face {faces_processed} processed in {face_time:.3f}s")
+        
+        # Summary log instead of detailed per-face logs
+        recognition_time = time.time() - recognition_start
+        total_time = time.time() - start_time
+        
+        identified_count = len(results["identified_students"])
+        total_faces = results["total_faces_detected"]
+        unidentified_count = results["unidentified_faces_count"]
+        
+        logger.info(f"⏱️ Face Recognition: {recognition_time:.2f}s - Processed {faces_processed} faces")
+        logger.info(f"⏱️ Total Processing Time: {total_time:.2f}s")
+        logger.info(f"🎯 Face Recognition Summary: {identified_count}/{total_faces} faces identified, {unidentified_count} unidentified")
+        if identified_count > 0:
+            identified_names = [student['name'] for student in results["identified_students"]]
+            logger.info(f"✅ Identified students: {', '.join(identified_names)}")
                 
         return results
 

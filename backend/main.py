@@ -1,6 +1,6 @@
 """
 PostgreSQL-Based Dental Attendance System - Main Backend
-Fresh start with class-based attendance support and no data migration.
+Enhanced with environment-based storage support and comprehensive logging.
 """
 
 import logging
@@ -15,6 +15,10 @@ from sqlalchemy.orm import Session
 from database import Base, engine, SessionLocal, init_fresh_db, create_all_tables
 from dependencies import get_db, get_face_recognizer, initialize_face_recognizer
 
+# Import enhanced utilities
+from utils.logging_utils import ConfigurableLoggingMiddleware, setup_logging, log_startup_info, log_shutdown_info
+from utils.storage_utils import storage_manager
+
 # Configure CORS for production deployment
 origins = ["*"]  # Allow all origins for demo purposes. In production, specify your frontend domain.
 cors_config = {
@@ -23,20 +27,14 @@ cors_config = {
     "allow_methods": ["*"],  # Allow all HTTP methods
     "allow_headers": ["*"],  # Allow all headers
 }
+
 from face_recognition import ClassBasedFaceRecognizer
 from routers.students import router as students_router
 from routers.attendance import router as attendance_router
 from config import *
 
-# Setup logging
-logging.basicConfig(
-    level=getattr(logging, LOG_LEVEL),
-    format=LOG_FORMAT,
-    handlers=[
-        logging.FileHandler(LOG_FILE),
-        logging.StreamHandler()
-    ]
-)
+# Setup enhanced logging with configurable throttling
+setup_logging(LOG_THROTTLE_MS)
 logger = logging.getLogger(__name__)
 
 # Lifespan event handler
@@ -44,11 +42,13 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     # Startup
     try:
+        log_startup_info()
         logger.info("Starting Dental Attendance System...")
         
-        # Ensure directories exist
-        ensure_directories()
-        logger.info("Static directories created/verified")
+        # Ensure directories exist (for local storage)
+        if PHOTO_STORAGE_TYPE == "local":
+            ensure_directories()
+            logger.info("Static directories created/verified")
         
         # Initialize fresh database (drops existing tables and creates new ones)
         # Comment out the next line after first run if you want to preserve data
@@ -71,25 +71,29 @@ async def lifespan(app: FastAPI):
         finally:
             db.close()
         
-        logger.info("System initialized successfully!")
-        logger.info("Ready for class-based attendance system!")
+        logger.info("✅ System initialized successfully!")
+        logger.info("🎓 Ready for class-based attendance system!")
         
     except Exception as e:
-        logger.error(f"Startup failed: {e}", exc_info=True)
+        logger.error(f"❌ Startup failed: {e}", exc_info=True)
         raise
     
     yield
     
     # Shutdown
-    logger.info("Shutting down Dental Attendance System")
+    log_shutdown_info()
 
-# FastAPI app
+# FastAPI app with enhanced configuration
 app = FastAPI(
-    title="Dental College Attendance System",
-    description="A class-based face recognition attendance system with PostgreSQL backend.",
-    version="6.0.1",
+    title="BTech Attendance System",
+    description="Advanced facial recognition-based attendance system with cloud storage support",
+    version="2.0.0",
     lifespan=lifespan
 )
+
+# Add enhanced logging middleware
+# Add configurable logging middleware
+app.add_middleware(ConfigurableLoggingMiddleware, log_interval_ms=LOG_THROTTLE_MS)
 
 # CORS Middleware - Production Configuration for Cloud Deployment
 # Warning: This configuration allows all origins for demo purposes

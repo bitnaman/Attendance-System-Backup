@@ -1,5 +1,5 @@
 """
-Student Router with Class-Based Support.
+Student Router with Class-Based Support and Enhanced Storage.
 Handles student registration, management, and attendance operations.
 """
 import os
@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from database import Student, Class, AttendanceRecord
 from dependencies import get_db, get_face_recognizer
 from config import STATIC_DIR
+from utils.storage_utils import storage_manager
 
 logger = logging.getLogger(__name__)
 
@@ -457,17 +458,39 @@ async def register_student(
             logger.warning(f"[REGISTRATION] Duplicate student found: {existing.name}")
             raise HTTPException(status_code=400, detail="A student with the same Roll No, PRN, or Seat No already exists.")
 
-        # Process face images
-        temp_dir = os.path.join("static", "student_photos")
-        os.makedirs(temp_dir, exist_ok=True)
-        temp_paths: List[str] = []
+        # Process face images using storage manager
+        stored_photos = []
         
         try:
-            for f in upload_list:
-                temp_path = os.path.join(temp_dir, f"temp_{os.path.basename(f.filename)}")
-                with open(temp_path, "wb") as buffer:
-                    shutil.copyfileobj(f.file, buffer)
-                temp_paths.append(temp_path)
+            # Save photos using storage manager
+            for i, upload_file in enumerate(upload_list):
+                photo_url = await storage_manager.save_dataset_photo(
+                    upload_file, name, roll_no, i + 1
+                )
+                stored_photos.append(photo_url)
+                logger.info(f"[REGISTRATION] Saved photo {i+1}: {photo_url}")
+
+            # For face recognition, we need local file paths temporarily
+            # Download photos if using S3, or use local paths directly
+            temp_paths: List[str] = []
+            if storage_manager.storage_type == "s3":
+                # Download from S3 for face recognition processing
+                import tempfile
+                import requests
+                temp_dir = tempfile.mkdtemp()
+                for i, photo_url in enumerate(stored_photos):
+                    response = requests.get(photo_url)
+                    temp_path = os.path.join(temp_dir, f"temp_{i+1}.jpg")
+                    with open(temp_path, 'wb') as f:
+                        f.write(response.content)
+                    temp_paths.append(temp_path)
+            else:
+                # For local storage, convert URLs back to file paths
+                for photo_url in stored_photos:
+                    if "/static/" in photo_url:
+                        relative_path = photo_url.split("/static/")[1]
+                        local_path = str(STATIC_DIR / relative_path)
+                        temp_paths.append(local_path)
 
             # Generate face embeddings
             if len(temp_paths) == 1:
@@ -482,19 +505,25 @@ async def register_student(
                     student_name=name,
                     student_roll_no=roll_no
                 )
+                
         except ValueError as e:
             logger.error(f"[REGISTRATION] Face embedding error: {e}")
+            # Clean up uploaded photos on error
+            for photo_url in stored_photos:
+                await storage_manager.delete_file(photo_url)
             raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            logger.error(f"[REGISTRATION] Photo processing error: {e}")
+            # Clean up uploaded photos on error
+            for photo_url in stored_photos:
+                await storage_manager.delete_file(photo_url)
+            raise HTTPException(status_code=500, detail="Failed to process photos")
         finally:
-            # Cleanup temp files
-            for p in temp_paths:
-                try:
-                    if os.path.exists(p):
-                        os.remove(p)
-                except Exception as e:
-                    logger.warning(f"Failed to remove temp file {p}: {e}")
+            # Cleanup temp files for S3 case
+            if storage_manager.storage_type == "s3" and 'temp_dir' in locals():
+                shutil.rmtree(temp_dir, ignore_errors=True)
 
-        # Create student record
+        # Create student record with stored photo URLs
         student = Student(
             name=name,
             age=age,
@@ -503,7 +532,7 @@ async def register_student(
             seat_no=seat_no,
             email=email,
             phone=phone,
-            photo_path=embedding_info["photo_path"],
+            photo_path=stored_photos[0] if stored_photos else None,  # Store primary photo URL
             face_encoding_path=embedding_info["embedding_path"],
             class_id=target_class_id,
             class_section=class_obj.section

@@ -1,5 +1,5 @@
 """
-Attendance Router with Class-Based Filtering.
+Attendance Router with Class-Based Filtering and Enhanced Storage.
 Handles class-specific attendance marking and analytics.
 """
 import os
@@ -18,6 +18,7 @@ from sqlalchemy import and_, func
 from database import Student, Class, AttendanceSession, AttendanceRecord
 from dependencies import get_db, get_face_recognizer
 from utils.export_utils import attendance_exporter
+from utils.storage_utils import storage_manager
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +57,7 @@ async def mark_attendance(
     face_recognizer = Depends(get_face_recognizer)
 ):
     """Mark attendance for a specific class"""
-    if not photo.content_type.startswith('image/'):
+    if not photo.content_type or not photo.content_type.startswith('image/'):
         raise HTTPException(status_code=400, detail="File must be an image")
     
     # Validate class exists
@@ -68,26 +69,58 @@ async def mark_attendance(
     logger.info(f"Loading students for class {class_obj.name} {class_obj.section}")
     face_recognizer.load_class_students(db, class_id)
     
-    # Save uploaded photo
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    photo_filename = f"{session_name.replace(' ', '_')}_{class_obj.name}_{class_obj.section}_{timestamp}.jpg"
-    photo_path = f"static/attendance_photos/{photo_filename}"
-
-    os.makedirs(os.path.dirname(photo_path), exist_ok=True)
-
-    with open(photo_path, "wb") as buffer:
-        shutil.copyfileobj(photo.file, buffer)
-
+    # Save uploaded photo using storage manager
     try:
+        photo_url = await storage_manager.save_attendance_photo(photo, session_name)
+        logger.info(f"Attendance photo saved: {photo_url}")
+    except Exception as e:
+        logger.error(f"Failed to save attendance photo: {e}")
+        raise HTTPException(status_code=500, detail="Failed to save photo")
+
+    # For face recognition, we need a local file path
+    # Handle different storage types
+    photo_path_for_processing = None
+    temp_file_path = None
+    
+    try:
+        if storage_manager.storage_type == "s3":
+            # Download from S3 for processing
+            import tempfile
+            import requests
+            logger.info(f"Downloading S3 photo for processing: {photo_url}")
+            response = requests.get(photo_url)
+            response.raise_for_status()
+            
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.jpg')
+            temp_file.write(response.content)
+            temp_file.close()
+            photo_path_for_processing = temp_file.name
+            temp_file_path = temp_file.name
+            logger.info(f"Downloaded to temp file: {photo_path_for_processing}")
+        else:
+            # For local storage, convert URL back to file path
+            from config import STATIC_DIR
+            if "/static/" in photo_url:
+                relative_path = photo_url.split("/static/")[1]
+                photo_path_for_processing = str(STATIC_DIR / relative_path)
+                logger.info(f"Using local file path: {photo_path_for_processing}")
+            else:
+                raise ValueError(f"Invalid local photo URL format: {photo_url}")
+
+        # Verify file exists and is readable
+        if not os.path.exists(photo_path_for_processing):
+            raise FileNotFoundError(f"Photo file not found: {photo_path_for_processing}")
+
         # Process photo with class-specific filtering
-        processing_result = face_recognizer.process_class_photo(photo_path, class_id)
+        logger.info(f"Processing photo for face recognition: {photo_path_for_processing}")
+        processing_result = face_recognizer.process_class_photo(photo_path_for_processing, class_id)
         if "error" in processing_result:
              raise HTTPException(status_code=500, detail=processing_result["error"])
 
         # Create attendance session
         session = AttendanceSession(
             session_name=session_name,
-            photo_path=photo_path,
+            photo_path=photo_url,  # Store the URL/path for access
             class_id=class_id,
             total_detected=processing_result["total_faces_detected"],
             total_present=len(processing_result["identified_students"]),
@@ -159,6 +192,14 @@ async def mark_attendance(
     except Exception as e:
         logger.error(f"Photo processing error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="An unexpected error occurred during photo processing.")
+    finally:
+        # Clean up temporary file if it was created
+        if temp_file_path and os.path.exists(temp_file_path):
+            try:
+                os.unlink(temp_file_path)
+                logger.info(f"Cleaned up temporary file: {temp_file_path}")
+            except Exception as cleanup_error:
+                logger.warning(f"Failed to clean up temporary file {temp_file_path}: {cleanup_error}")
 
 
 @router.get("/sessions")

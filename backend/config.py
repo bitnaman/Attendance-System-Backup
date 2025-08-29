@@ -3,6 +3,10 @@ Configuration for the Dental Attendance System
 """
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Base directories
 BASE_DIR = Path(__file__).parent
@@ -15,16 +19,31 @@ POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
 POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
 POSTGRES_DB = os.getenv("POSTGRES_DB", "dental_attendance")
 POSTGRES_USER = os.getenv("POSTGRES_USER", "postgres")
-POSTGRES_PASSWORD = "root"  # Update this!
+POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "root")
 
 # PostgreSQL connection URL
 DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
 
-# Static file paths
+# Photo Storage Configuration
+PHOTO_STORAGE_TYPE = os.getenv("PHOTO_STORAGE_TYPE", "local").lower()  # "local" or "s3"
+
+# AWS S3 Configuration (used when PHOTO_STORAGE_TYPE = "s3")
+AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
+S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
+
+# Static file paths (for local storage)
 STUDENT_PHOTOS_DIR = STATIC_DIR / "student_photos"
 ATTENDANCE_PHOTOS_DIR = STATIC_DIR / "attendance_photos"
 DATASET_DIR = STATIC_DIR / "dataset"
 EXPORTS_DIR = STATIC_DIR / "exports"
+
+# Photo URL base configuration
+if PHOTO_STORAGE_TYPE == "s3":
+    PHOTO_BASE_URL = f"https://{S3_BUCKET_NAME}.s3.{AWS_REGION}.amazonaws.com"
+else:
+    PHOTO_BASE_URL = os.getenv("BACKEND_BASE_URL", "http://localhost:8000")
 
 # Face recognition settings
 FACE_RECOGNITION_MODEL = "Facenet512"
@@ -38,9 +57,17 @@ PORT = 8000
 DEBUG = True
 
 # Logging settings
-LOG_LEVEL = "INFO"
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 LOG_FILE = ROOT_DIR / "dental_attendance.log"
 LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+# Configurable logging throttle interval in milliseconds
+# Controls the minimum time between similar log messages
+# This value is read directly from the .env file
+_throttle_ms = os.getenv("LOG_THROTTLE_MS")
+if _throttle_ms is None:
+    raise ValueError("LOG_THROTTLE_MS must be set in the .env file")
+LOG_THROTTLE_MS = int(_throttle_ms)
 
 # CORS settings
 CORS_ORIGINS = ["*"]  # In production, specify actual origins
