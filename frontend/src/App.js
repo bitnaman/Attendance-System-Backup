@@ -273,7 +273,7 @@ function App() {
               <div className="logo-icon">🎓</div>
               <div className="brand-text">
                 <h1>BTech Attendance System</h1>
-                <div className="brand-subtitle">IT & AIML Department - Smart Attendance Management</div>
+                <div className="brand-subtitle">IT Department - Smart Attendance Management</div>
               </div>
             </div>
           </div>

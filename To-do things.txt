@@ -1,4 +1,5 @@
 Add general section to mark attendance
 add role based access -- teacher, admin and principal
-adding 2 or more classes combine feature for attendance marking
+preview section
+login page 
 train images on 3d density based vectors
