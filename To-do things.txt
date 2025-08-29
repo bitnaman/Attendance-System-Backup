@@ -5,3 +5,6 @@ adding 2 or more classes combine feature for attendance marking (checkbox based)
 preview section
 login page 
 train images on 3d density based vectors
+
+
+modularise the database and api from file for future use
