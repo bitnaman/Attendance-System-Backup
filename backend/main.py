@@ -14,6 +14,15 @@ from sqlalchemy.orm import Session
 # Import components
 from database import Base, engine, SessionLocal, init_fresh_db, create_all_tables
 from dependencies import get_db, get_face_recognizer, initialize_face_recognizer
+
+# Configure CORS for production deployment
+origins = ["*"]  # Allow all origins for demo purposes. In production, specify your frontend domain.
+cors_config = {
+    "allow_origins": origins,
+    "allow_credentials": True,
+    "allow_methods": ["*"],  # Allow all HTTP methods
+    "allow_headers": ["*"],  # Allow all headers
+}
 from face_recognition import ClassBasedFaceRecognizer
 from routers.students import router as students_router
 from routers.attendance import router as attendance_router
@@ -82,13 +91,15 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS Middleware
+# CORS Middleware - Production Configuration for Cloud Deployment
+# Warning: This configuration allows all origins for demo purposes
+# In production, specify your frontend domain for security
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=CORS_ORIGINS,
+    allow_origins=["*"],  # Allow all origins - replace with specific domain in production
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"],  # Allow all HTTP methods
+    allow_headers=["*"],  # Allow all headers
 )
 
 # Static files

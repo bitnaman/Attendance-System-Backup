@@ -1,3 +1,7 @@
+// API base URL configuration for deployment
+// In development: Uses localhost
+// In production: Uses the environment variable REACT_APP_API_BASE
+// Example for AWS EC2: REACT_APP_API_BASE=http://<AWS-EC2-PUBLIC-IP>:8000
 const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:8000';
 
 async function apiRequest(url, options = {}) {
