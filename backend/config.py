@@ -60,6 +60,92 @@ MODEL_CONFIGS = {
     "SFace": {"threshold": 12.0, "embedding_size": 128}
 }
 
+# Face detector backends configuration
+DETECTOR_CONFIGS = {
+    "opencv": {
+        "description": "OpenCV Haar Cascade - Fast but basic",
+        "performance": "Fast",
+        "accuracy": "Basic",
+        "requirements": ["opencv-python"]
+    },
+    "mtcnn": {
+        "description": "Multi-task CNN - Very accurate",
+        "performance": "Moderate", 
+        "accuracy": "High",
+        "requirements": ["mtcnn", "tensorflow"]
+    },
+    "ssd": {
+        "description": "Single Shot Detector - Balanced",
+        "performance": "Fast",
+        "accuracy": "Good", 
+        "requirements": ["tensorflow"]
+    },
+    "retinaface": {
+        "description": "RetinaFace - Highly accurate for difficult conditions",
+        "performance": "Slow",
+        "accuracy": "Very High",
+        "requirements": ["retina-face", "tensorflow"]
+    },
+    "dlib": {
+        "description": "Dlib HOG + Linear SVM - Traditional approach",
+        "performance": "Moderate",
+        "accuracy": "Good",
+        "requirements": ["dlib"]
+    },
+    "mediapipe": {
+        "description": "MediaPipe Face Detection - Google's solution",
+        "performance": "Fast",
+        "accuracy": "Good",
+        "requirements": ["mediapipe"]
+    }
+}
+
+# Check detector availability
+def check_detector_availability():
+    """Check which detector backends are available"""
+    available_detectors = []
+    unavailable_detectors = []
+    
+    for detector_name in DETECTOR_CONFIGS.keys():
+        try:
+            if detector_name == 'opencv':
+                import cv2
+                available_detectors.append(detector_name)
+            elif detector_name == 'mtcnn':
+                import mtcnn
+                available_detectors.append(detector_name)
+            elif detector_name == 'ssd':
+                import tensorflow
+                available_detectors.append(detector_name)
+            elif detector_name == 'retinaface':
+                from retinaface import RetinaFace  # Updated import
+                available_detectors.append(detector_name)
+            elif detector_name == 'dlib':
+                import dlib
+                available_detectors.append(detector_name)
+            elif detector_name == 'mediapipe':
+                import mediapipe
+                available_detectors.append(detector_name)
+        except ImportError:
+            unavailable_detectors.append(detector_name)
+    
+    return available_detectors, unavailable_detectors
+
+# Get available detectors
+AVAILABLE_DETECTORS, UNAVAILABLE_DETECTORS = check_detector_availability()
+
+# Validate selected detector
+if FACE_DETECTOR_BACKEND not in AVAILABLE_DETECTORS:
+    print(f"⚠️ WARNING: Selected detector '{FACE_DETECTOR_BACKEND}' is not available!")
+    print(f"Available detectors: {', '.join(AVAILABLE_DETECTORS)}")
+    if AVAILABLE_DETECTORS:
+        # Fall back to first available detector
+        fallback_detector = AVAILABLE_DETECTORS[0]
+        print(f"🔄 Falling back to '{fallback_detector}'")
+        FACE_DETECTOR_BACKEND = fallback_detector
+    else:
+        raise RuntimeError("No face detector backends are available!")
+
 # Server settings
 HOST = "0.0.0.0"
 PORT = 8000

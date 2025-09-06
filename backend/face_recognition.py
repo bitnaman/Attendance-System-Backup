@@ -21,7 +21,25 @@ ENHANCED_PREPROCESSING = True      # Enable enhanced image preprocessing
 
 # Get model-specific configuration
 MODEL_CONFIG = MODEL_CONFIGS.get(RECOGNITION_MODEL, {"threshold": 20.0, "embedding_size": 512})
-DISTANCE_THRESHOLD = MODEL_CONFIG["threshold"]  # Use model-specific threshold
+
+# Determine if user explicitly set threshold in .env vs using system default
+import os
+ENV_THRESHOLD_EXPLICIT = os.getenv("FACE_DISTANCE_THRESHOLD") is not None
+MODEL_DEFAULT_THRESHOLD = MODEL_CONFIG["threshold"]
+
+if ENV_THRESHOLD_EXPLICIT:
+    # User explicitly set threshold in .env file - always respect this
+    EFFECTIVE_THRESHOLD = FACE_DISTANCE_THRESHOLD
+    THRESHOLD_SOURCE = f".env (explicit: {FACE_DISTANCE_THRESHOLD})"
+    IS_CUSTOM_THRESHOLD = True
+else:
+    # No explicit .env setting, use model-specific optimal threshold
+    EFFECTIVE_THRESHOLD = MODEL_DEFAULT_THRESHOLD  
+    THRESHOLD_SOURCE = f"model default ({MODEL_DEFAULT_THRESHOLD})"
+    IS_CUSTOM_THRESHOLD = False
+
+# Update DISTANCE_THRESHOLD to the effective value
+DISTANCE_THRESHOLD = EFFECTIVE_THRESHOLD
 
 # Create throttled logger for face recognition
 logger = create_throttled_logger(__name__, LOG_THROTTLE_MS)
@@ -45,8 +63,30 @@ class ClassBasedFaceRecognizer:
         
         # Build the model once to avoid slow first-time calls
         try:
+            logger.info(f"🏗️ Building {RECOGNITION_MODEL} model...")
             DeepFace.build_model(RECOGNITION_MODEL)
-            logger.info(f"✅ {RECOGNITION_MODEL} model built successfully.")
+            
+            # Log detailed model configuration
+            logger.info(f"✅ {RECOGNITION_MODEL} model built successfully!")
+            logger.info(f"📊 Model Details:")
+            logger.info(f"   🧠 Architecture: {RECOGNITION_MODEL}")
+            logger.info(f"   👁️ Detector Backend: {DETECTOR_BACKEND}")
+            logger.info(f"   📏 Distance Threshold: {DISTANCE_THRESHOLD} ({THRESHOLD_SOURCE})")
+            logger.info(f"   🎯 Min Confidence: {MIN_CONFIDENCE_THRESHOLD}")
+            logger.info(f"   🔧 Enhanced Preprocessing: {'✅ Enabled' if ENHANCED_PREPROCESSING else '❌ Disabled'}")
+            
+            # Log model-specific configuration
+            if RECOGNITION_MODEL in MODEL_CONFIGS:
+                config = MODEL_CONFIGS[RECOGNITION_MODEL]
+                logger.info(f"   ⚙️ Embedding Dimensions: {config['embedding_size']}d")
+                logger.info(f"   🎚️ Model Default Threshold: {config['threshold']}")
+                
+                # Show if threshold is customized
+                if IS_CUSTOM_THRESHOLD:
+                    logger.info(f"   🔄 Using explicit .env threshold: {DISTANCE_THRESHOLD} (model default: {config['threshold']})")
+                else:
+                    logger.info(f"   ✅ Using model default threshold: {DISTANCE_THRESHOLD}")
+            
         except Exception as e:
             logger.error(f"❌ Failed to build face recognition model: {e}")
             raise
@@ -59,7 +99,8 @@ class ClassBasedFaceRecognizer:
         try:
             import tensorflow as tf
             self.tf_version = tf.__version__
-            logger.info(f"✅ TensorFlow {self.tf_version} loaded successfully.")
+            logger.info(f"🔧 TENSORFLOW SETUP")
+            logger.info(f"   📦 Version: {self.tf_version}")
             
             # Check for GPU availability
             gpus = tf.config.list_physical_devices('GPU')
@@ -76,26 +117,25 @@ class ClassBasedFaceRecognizer:
                         test_result = tf.reduce_sum(test_tensor)
                     
                     self.gpu_available = True
-                    logger.info(f"✅ GPU acceleration enabled! Detected {len(gpus)} GPU(s):")
+                    logger.info(f"   🚀 GPU Acceleration: ✅ ENABLED")
+                    logger.info(f"   🎮 GPU Count: {len(gpus)}")
                     for i, gpu in enumerate(gpus):
-                        logger.info(f"   GPU {i}: {gpu.name}")
-                    logger.info(f"✅ GPU computation test passed: {test_result.numpy()}")
+                        logger.info(f"      GPU {i}: {gpu.name}")
+                    logger.info(f"   ✅ GPU Test: PASSED ({test_result.numpy()})")
                     
                 except Exception as gpu_error:
                     self.gpu_available = False
-                    logger.warning(f"⚠️  GPU detected but computation failed: {gpu_error}")
-                    logger.warning("💡 Falling back to CPU computation. Face recognition will be slower.")
+                    logger.warning(f"   ⚠️ GPU Test: FAILED - {gpu_error}")
+                    logger.warning(f"   � Fallback: CPU computation (slower)")
             else:
                 self.gpu_available = False
-                logger.info("ℹ️  No GPU detected. Using CPU for face recognition.")
-                logger.info("💡 For faster performance, ensure you have:")
-                logger.info("   - NVIDIA GPU with CUDA support")
-                logger.info("   - TensorFlow with CUDA libraries installed")
-                logger.info("   - Run: pip install tensorflow[and-cuda]")
+                logger.info(f"   💻 Compute Mode: CPU only")
+                logger.info(f"   💡 GPU Performance Tips:")
+                logger.info(f"      • Install NVIDIA GPU with CUDA support")
+                logger.info(f"      • Install: pip install tensorflow[and-cuda]")
                 
         except ImportError:
-            logger.error("❌ TensorFlow not found! Please install it:")
-            logger.error("   pip install tensorflow[and-cuda]")
+            logger.error("❌ TensorFlow not found! Install with: pip install tensorflow[and-cuda]")
             raise ImportError("TensorFlow is required for face recognition")
         except Exception as e:
             logger.error(f"❌ TensorFlow setup failed: {e}")

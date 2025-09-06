@@ -31,6 +31,7 @@ cors_config = {
 from face_recognition import ClassBasedFaceRecognizer
 from routers.students import router as students_router
 from routers.attendance import router as attendance_router
+from routers.config import router as config_router
 from config import *
 
 # Setup enhanced logging with configurable throttling
@@ -60,19 +61,33 @@ async def lifespan(app: FastAPI):
         
         # Initialize face recognizer
         initialize_face_recognizer()
-        logger.info("Face recognizer initialized")
         
         # Load students into recognizer (will be empty on fresh start)
         recognizer = get_face_recognizer()
         db = SessionLocal()
         try:
             recognizer.load_all_students(db)
-            logger.info("Student data loaded into face recognizer")
+            student_count = len(recognizer.known_students_db)
+            logger.info(f"👥 {student_count} students loaded into face recognizer")
+            
+            # Log final system status
+            logger.info("🎯 SYSTEM READY STATUS")
+            logger.info(f"   🧠 Face Recognition: {recognizer.__class__.__name__}")
+            logger.info(f"   🖥️ Compute: {'GPU' if recognizer.gpu_available else 'CPU'}")
+            logger.info(f"   📊 TensorFlow: {recognizer.tf_version}")
+            logger.info(f"   👥 Students Loaded: {student_count}")
+            logger.info(f"   💾 Storage: {PHOTO_STORAGE_TYPE.upper()}")
+            logger.info(f"   🗃️ Database: Connected")
+            
         finally:
             db.close()
         
         logger.info("✅ System initialized successfully!")
         logger.info("🎓 Ready for class-based attendance system!")
+        logger.info("=" * 60)
+        logger.info(f"🌐 Server running at: http://localhost:{PORT}")
+        logger.info(f"📄 API docs available at: http://localhost:{PORT}/docs")
+        logger.info("=" * 60)
         
     except Exception as e:
         logger.error(f"❌ Startup failed: {e}", exc_info=True)
@@ -112,6 +127,7 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 # API Routers
 app.include_router(students_router)
 app.include_router(attendance_router)
+app.include_router(config_router)
 
 # Health check endpoint
 @app.get("/health")

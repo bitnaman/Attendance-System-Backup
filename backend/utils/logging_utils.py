@@ -281,20 +281,103 @@ def log_startup_info():
     """Log application startup information."""
     import sys
     import platform
-    from config import PHOTO_STORAGE_TYPE, DATABASE_URL
+    from config import (
+        PHOTO_STORAGE_TYPE, DATABASE_URL, FACE_RECOGNITION_MODEL, 
+        FACE_DETECTOR_BACKEND, FACE_DISTANCE_THRESHOLD, MODEL_CONFIGS,
+        LOG_THROTTLE_MS, PORT, HOST
+    )
     
     logger.info("🚀 Starting BTech Attendance System")
+    logger.info("=" * 60)
+    
+    # System Information
+    logger.info("📊 SYSTEM CONFIGURATION")
     logger.info(f"🐍 Python version: {sys.version}")
     logger.info(f"💻 Platform: {platform.platform()}")
-    logger.info(f"📁 Storage type: {PHOTO_STORAGE_TYPE}")
-    logger.info(f"🗃️ Database: {DATABASE_URL.split('@')[1] if '@' in DATABASE_URL else 'Not configured'}")
+    logger.info(f"🌐 Server: {HOST}:{PORT}")
+    logger.info(f"📝 Log throttle: {LOG_THROTTLE_MS}ms")
     
-    # Log environment status
+    # Database Information
+    logger.info("🗃️ DATABASE CONFIGURATION")
+    logger.info(f"� Database: {DATABASE_URL.split('@')[1] if '@' in DATABASE_URL else 'Not configured'}")
+    
+    # Storage Information
+    logger.info("📁 STORAGE CONFIGURATION")
+    logger.info(f"💾 Storage type: {PHOTO_STORAGE_TYPE}")
     if PHOTO_STORAGE_TYPE == "s3":
         from config import S3_BUCKET_NAME, AWS_REGION
         logger.info(f"☁️ S3 Bucket: {S3_BUCKET_NAME} in {AWS_REGION}")
     else:
         logger.info("🏠 Using local file storage")
+    
+    # Face Recognition Configuration
+    logger.info("🤖 FACE RECOGNITION CONFIGURATION")
+    logger.info(f"🧠 Model: {FACE_RECOGNITION_MODEL}")
+    logger.info(f"👁️ Detector: {FACE_DETECTOR_BACKEND}")
+    
+    # Check if threshold is explicitly set in .env
+    import os
+    env_threshold_set = os.getenv("FACE_DISTANCE_THRESHOLD") is not None
+    
+    if env_threshold_set:
+        logger.info(f"📏 .env Threshold: {FACE_DISTANCE_THRESHOLD} (explicit)")
+    else:
+        logger.info(f"📏 .env Threshold: {FACE_DISTANCE_THRESHOLD} (using config default)")
+    
+    # Model-specific configuration
+    if FACE_RECOGNITION_MODEL in MODEL_CONFIGS:
+        model_config = MODEL_CONFIGS[FACE_RECOGNITION_MODEL]
+        logger.info(f"⚙️ Model Default - Threshold: {model_config['threshold']}, Embedding Size: {model_config['embedding_size']}")
+        
+        # Show effective threshold logic
+        if env_threshold_set:
+            logger.info(f"🔄 Effective Threshold: {FACE_DISTANCE_THRESHOLD} (using explicit .env value)")
+        else:
+            logger.info(f"✅ Effective Threshold: {model_config['threshold']} (using model default)")
+    else:
+        if env_threshold_set:
+            logger.info(f"⚠️ No specific config found for {FACE_RECOGNITION_MODEL}, using explicit .env threshold: {FACE_DISTANCE_THRESHOLD}")
+        else:
+            logger.info(f"⚠️ No specific config found for {FACE_RECOGNITION_MODEL}, using fallback threshold: {FACE_DISTANCE_THRESHOLD}")
+    
+    # Available models
+    logger.info("📋 Available Models:")
+    for model_name, config in MODEL_CONFIGS.items():
+        status = "🟢 ACTIVE" if model_name == FACE_RECOGNITION_MODEL else "⚪"
+        logger.info(f"   {status} {model_name}: threshold={config['threshold']}, embedding={config['embedding_size']}d")
+    
+    # Detector configuration
+    from config import DETECTOR_CONFIGS, AVAILABLE_DETECTORS, UNAVAILABLE_DETECTORS
+    logger.info("🔍 DETECTOR CONFIGURATION")
+    if FACE_DETECTOR_BACKEND in DETECTOR_CONFIGS:
+        detector_config = DETECTOR_CONFIGS[FACE_DETECTOR_BACKEND]
+        logger.info(f"🎯 Active Detector: {FACE_DETECTOR_BACKEND}")
+        logger.info(f"   📝 {detector_config['description']}")
+        logger.info(f"   ⚡ Performance: {detector_config['performance']}")
+        logger.info(f"   🎯 Accuracy: {detector_config['accuracy']}")
+    
+    # Available detectors
+    logger.info("📋 Available Detectors:")
+    for detector_name in AVAILABLE_DETECTORS:
+        config = DETECTOR_CONFIGS.get(detector_name, {})
+        status = "🟢 ACTIVE" if detector_name == FACE_DETECTOR_BACKEND else "✅"
+        logger.info(f"   {status} {detector_name}: {config.get('performance', 'Unknown')} performance, {config.get('accuracy', 'Unknown')} accuracy")
+    
+    if UNAVAILABLE_DETECTORS:
+        logger.info("❌ Unavailable Detectors:")
+        for detector_name in UNAVAILABLE_DETECTORS:
+            config = DETECTOR_CONFIGS.get(detector_name, {})
+            requirements = ", ".join(config.get('requirements', ['Unknown']))
+            logger.info(f"   ⚪ {detector_name}: requires {requirements}")
+    
+    # Configuration change instructions
+    logger.info("🔧 CONFIGURATION CHANGE GUIDE:")
+    logger.info("   📝 To change model: Update FACE_RECOGNITION_MODEL in .env file")
+    logger.info("   👁️ To change detector: Update FACE_DETECTOR_BACKEND in .env file")  
+    logger.info("   📏 To change threshold: Update FACE_DISTANCE_THRESHOLD in .env file")
+    logger.info("   🔄 To apply changes: Restart backend server")
+    
+    logger.info("=" * 60)
 
 
 def log_shutdown_info():
