@@ -10,18 +10,14 @@ import shutil
 from typing import Dict, Any, List, Tuple, Optional
 from deepface import DeepFace
 from utils.logging_utils import create_throttled_logger
-from config import LOG_THROTTLE_MS, FACE_RECOGNITION_MODEL, FACE_DETECTOR_BACKEND, FACE_DISTANCE_THRESHOLD, MODEL_CONFIGS
+from config import LOG_THROTTLE_MS
 
 # --- Enhanced Configuration Constants for Better Accuracy ---
-RECOGNITION_MODEL = FACE_RECOGNITION_MODEL  # Now configurable via config.py
-DETECTOR_BACKEND = FACE_DETECTOR_BACKEND    # Now configurable via config.py  
-DISTANCE_THRESHOLD = FACE_DISTANCE_THRESHOLD  # Now configurable via config.py
+RECOGNITION_MODEL = "Facenet512"  # A very powerful and common model
+DETECTOR_BACKEND = "mtcnn"        # A high-accuracy detector
+DISTANCE_THRESHOLD = 20.0         # Distance threshold for matching
 MIN_CONFIDENCE_THRESHOLD = 0.10   # Minimum confidence to consider a match (10%)
 ENHANCED_PREPROCESSING = True      # Enable enhanced image preprocessing
-
-# Get model-specific configuration
-MODEL_CONFIG = MODEL_CONFIGS.get(RECOGNITION_MODEL, {"threshold": 20.0, "embedding_size": 512})
-DISTANCE_THRESHOLD = MODEL_CONFIG["threshold"]  # Use model-specific threshold
 
 # Create throttled logger for face recognition
 logger = create_throttled_logger(__name__, LOG_THROTTLE_MS)
@@ -141,44 +137,21 @@ class ClassBasedFaceRecognizer:
                         
                         # Enhanced embedding processing for better accuracy
                         if embedding.ndim == 2:
-                            # Multiple embeddings detected - use enhanced averaging (same as registration)
+                            # Multiple embeddings detected - use enhanced averaging
                             if len(embedding) > 1:
-                                # Apply same outlier detection and quality assessment as registration
-                                def enhanced_embedding_averaging(embeddings):
-                                    """Apply enhanced averaging with outlier detection"""
-                                    # Simple outlier detection for loading (lighter than registration)
-                                    mean_emb = np.mean(embeddings, axis=0)
-                                    distances = [np.linalg.norm(emb - mean_emb) for emb in embeddings]
-                                    threshold = np.mean(distances) + 2 * np.std(distances)
-                                    
-                                    # Keep embeddings within threshold
-                                    filtered_embeddings = [emb for i, emb in enumerate(embeddings) 
-                                                         if distances[i] <= threshold]
-                                    
-                                    if not filtered_embeddings:
-                                        filtered_embeddings = [embeddings[0]]  # Keep at least one
-                                    
-                                    # Enhanced quality scoring
-                                    if len(filtered_embeddings) > 1:
-                                        filtered_mean = np.mean(filtered_embeddings, axis=0)
-                                        quality_scores = []
-                                        
-                                        for emb in filtered_embeddings:
-                                            consistency_score = 1.0 / (1.0 + np.linalg.norm(emb - filtered_mean))
-                                            magnitude_score = 1.0 / (1.0 + abs(np.linalg.norm(emb) - np.linalg.norm(filtered_mean)))
-                                            combined_quality = (consistency_score * 0.7) + (magnitude_score * 0.3)
-                                            quality_scores.append(combined_quality)
-                                        
-                                        # Exponential weighting for high-quality embeddings
-                                        quality_weights = np.exp(np.array(quality_scores) * 2.0)
-                                        quality_weights = quality_weights / np.sum(quality_weights)
-                                        
-                                        return np.average(filtered_embeddings, axis=0, weights=quality_weights)
-                                    else:
-                                        return filtered_embeddings[0]
+                                # Quality-weighted averaging (same as registration)
+                                mean_embedding = np.mean(embedding, axis=0)
+                                quality_scores = []
                                 
-                                embedding = enhanced_embedding_averaging(embedding)
-                                logger.debug(f"🎯 Enhanced averaging for {student.name}: {len(embedding)} -> 1 optimized embedding")
+                                for emb in embedding:
+                                    distance_from_mean = np.linalg.norm(emb - mean_embedding)
+                                    quality_scores.append(1.0 / (1.0 + distance_from_mean))
+                                
+                                quality_scores = np.array(quality_scores)
+                                quality_weights = quality_scores / np.sum(quality_scores)
+                                embedding = np.average(embedding, axis=0, weights=quality_weights)
+                                
+                                logger.debug(f"🎯 Enhanced averaging for {student.name}: {len(quality_scores)} embeddings")
                             else:
                                 embedding = embedding[0]  # Single embedding in 2D array
                                 
@@ -367,79 +340,35 @@ class ClassBasedFaceRecognizer:
             if not all_embeddings:
                 raise ValueError("None of the provided images contained a valid, clear single face")
 
-            # Enhanced averaging with outlier detection and advanced quality assessment
+            # Enhanced averaging: Use weighted average based on quality metrics
             if len(all_embeddings) > 1:
                 stacked = np.stack(all_embeddings, axis=0)
                 
-                # Step 1: Outlier Detection using IQR method
-                def detect_outliers(embeddings):
-                    """Detect outlier embeddings using statistical methods"""
-                    pairwise_distances = []
-                    for i, emb1 in enumerate(embeddings):
-                        for j, emb2 in enumerate(embeddings):
-                            if i != j:
-                                pairwise_distances.append(np.linalg.norm(emb1 - emb2))
-                    
-                    if len(pairwise_distances) == 0:
-                        return np.arange(len(embeddings))  # Keep all if only one embedding
-                    
-                    # Calculate IQR for outlier detection
-                    q1, q3 = np.percentile(pairwise_distances, [25, 75])
-                    iqr = q3 - q1
-                    outlier_threshold = q3 + 1.5 * iqr
-                    
-                    # Find embeddings that are not outliers
-                    non_outliers = []
-                    for i, emb in enumerate(embeddings):
-                        distances_to_others = [np.linalg.norm(emb - other) for j, other in enumerate(embeddings) if i != j]
-                        avg_distance = np.mean(distances_to_others) if distances_to_others else 0
-                        if avg_distance <= outlier_threshold:
-                            non_outliers.append(i)
-                    
-                    return non_outliers if non_outliers else [0]  # Keep at least one embedding
-                
-                # Remove outliers
-                valid_indices = detect_outliers(all_embeddings)
-                filtered_embeddings = [all_embeddings[i] for i in valid_indices]
-                filtered_stacked = np.stack(filtered_embeddings, axis=0)
-                
-                logger.info(f"🧹 Outlier detection: kept {len(filtered_embeddings)}/{len(all_embeddings)} embeddings")
-                
-                # Step 2: Advanced Quality Scoring
-                mean_embedding = np.mean(filtered_stacked, axis=0)
+                # Calculate embedding quality scores (based on L2 norm consistency)
+                mean_embedding = np.mean(stacked, axis=0)
                 quality_scores = []
                 
-                for emb in filtered_embeddings:
-                    # Multi-factor quality assessment
-                    consistency_score = 1.0 / (1.0 + np.linalg.norm(emb - mean_embedding))
-                    magnitude_score = 1.0 / (1.0 + abs(np.linalg.norm(emb) - np.linalg.norm(mean_embedding)))
-                    
-                    # Combined quality score
-                    combined_quality = (consistency_score * 0.7) + (magnitude_score * 0.3)
-                    quality_scores.append(combined_quality)
+                for emb in all_embeddings:
+                    # Quality = inverse of distance from mean (more consistent = higher quality)
+                    distance_from_mean = np.linalg.norm(emb - mean_embedding)
+                    quality_scores.append(1.0 / (1.0 + distance_from_mean))
                 
-                # Step 3: Enhanced Weighted Averaging
+                # Normalize quality scores to sum to 1
                 quality_scores = np.array(quality_scores)
+                quality_weights = quality_scores / np.sum(quality_scores)
                 
-                # Apply exponential emphasis to high-quality embeddings
-                quality_weights = np.exp(quality_scores * 2.0)  # Exponential weighting
-                quality_weights = quality_weights / np.sum(quality_weights)
+                # Weighted average for final embedding
+                final_embedding = np.average(stacked, axis=0, weights=quality_weights)
                 
-                # Final weighted average
-                final_embedding = np.average(filtered_stacked, axis=0, weights=quality_weights)
+                logger.info(f"📊 Enhanced averaging: {len(all_embeddings)} embeddings, quality weights: {quality_weights}")
                 
-                logger.info(f"📊 Enhanced averaging: {len(filtered_embeddings)} embeddings")
-                logger.info(f"🎯 Quality weights: {quality_weights}")
-                logger.info(f"⚡ Final embedding norm: {np.linalg.norm(final_embedding):.3f}")
-                
-                # Save both individual embeddings and metadata
-                np.save(embedding_path, filtered_stacked)  # Keep filtered embeddings
+                # Save both individual embeddings and final weighted average
+                np.save(embedding_path, stacked)  # Keep individual embeddings for potential future use
             else:
-                # Single embedding case
                 stacked = np.stack(all_embeddings, axis=0)
                 np.save(embedding_path, stacked)
-                logger.info(f"💾 Saved single high-quality embedding to {embedding_path}")
                 
+            logger.info(f"💾 Saved {stacked.shape[0]} high-quality embeddings to {embedding_path}")
             logger.info(f"✨ Registration success rate: {valid_images_count}/{len(image_paths)} images processed")
             
             return {"photo_path": final_photo_path, "embedding_path": embedding_path}

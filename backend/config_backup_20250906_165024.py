@@ -46,19 +46,10 @@ else:
     PHOTO_BASE_URL = os.getenv("BACKEND_BASE_URL", "http://localhost:8000")
 
 # Face recognition settings
-FACE_RECOGNITION_MODEL = os.getenv("FACE_RECOGNITION_MODEL", "ArcFace")  # Upgraded to ArcFace
-FACE_DETECTOR_BACKEND = os.getenv("FACE_DETECTOR_BACKEND", "mtcnn")
-FACE_DISTANCE_THRESHOLD = float(os.getenv("FACE_DISTANCE_THRESHOLD", "18.0"))  # Adjusted for ArcFace
+FACE_RECOGNITION_MODEL = "Facenet512"
+FACE_DETECTOR_BACKEND = "mtcnn"
+FACE_DISTANCE_THRESHOLD = 0.5  # Lower is more strict
 FACE_CONFIDENCE_THRESHOLD = 0.65  # For older HOG-based system
-
-# Model performance configurations
-MODEL_CONFIGS = {
-    "Facenet512": {"threshold": 20.0, "embedding_size": 512},
-    "ArcFace": {"threshold": 18.0, "embedding_size": 512},
-    "Facenet": {"threshold": 15.0, "embedding_size": 128},
-    "GhostFaceNet": {"threshold": 19.0, "embedding_size": 512},
-    "SFace": {"threshold": 12.0, "embedding_size": 128}
-}
 
 # Server settings
 HOST = "0.0.0.0"
