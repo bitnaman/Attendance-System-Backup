@@ -121,8 +121,8 @@ class StorageManager:
         Returns the URL/path to access the photo.
         """
         try:
-            # Create dataset folder structure
-            dataset_folder = f"{student_name}_{roll_no}"
+            # Create dataset folder structure - use consistent naming with underscores
+            dataset_folder = f"{student_name.replace(' ', '_')}_{roll_no}"
             filename_base = upload_file.filename or "dataset.jpg"
             file_extension = os.path.splitext(filename_base)[1]
             filename = f"{photo_index}{file_extension}"
