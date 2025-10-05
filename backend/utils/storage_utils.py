@@ -1,5 +1,5 @@
 """
-Storage utilities for handling both local and S3 photo storage.
+Storage utilities for handling local, S3, and Google Cloud Storage photo storage.
 """
 import os
 import logging
@@ -10,6 +10,14 @@ from urllib.parse import urljoin
 import boto3
 from botocore.exceptions import ClientError, NoCredentialsError
 from fastapi import UploadFile, HTTPException
+
+# GCS imports
+try:
+    from google.cloud import storage
+    from google.oauth2 import service_account
+    GCS_AVAILABLE = True
+except ImportError:
+    GCS_AVAILABLE = False
 
 from config import (
     PHOTO_STORAGE_TYPE,
@@ -28,14 +36,18 @@ logger = logging.getLogger(__name__)
 
 
 class StorageManager:
-    """Manages photo storage for both local filesystem and AWS S3."""
+    """Manages photo storage for local filesystem, AWS S3, and Google Cloud Storage."""
     
     def __init__(self):
         self.storage_type = PHOTO_STORAGE_TYPE
         self.s3_client: Optional[boto3.client] = None
+        self.gcs_client: Optional[storage.Client] = None
+        self.gcs_bucket_name: Optional[str] = None
         
         if self.storage_type == "s3":
             self._initialize_s3_client()
+        elif self.storage_type == "gcs":
+            self._initialize_gcs_client()
         else:
             self._ensure_local_directories()
     
@@ -66,6 +78,44 @@ class StorageManager:
             logger.error(f"❌ S3 initialization failed: {e}")
             raise HTTPException(status_code=500, detail="S3 storage initialization failed")
     
+    def _initialize_gcs_client(self):
+        """Initialize Google Cloud Storage client with credentials."""
+        try:
+            if not GCS_AVAILABLE:
+                raise ImportError("Google Cloud Storage libraries not installed")
+            
+            # Get GCS configuration from environment
+            gcs_bucket = os.getenv('GCS_BUCKET_NAME', 'facial-attendance-storage')
+            service_account_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
+            
+            if service_account_path and os.path.exists(service_account_path):
+                # Use service account file
+                credentials = service_account.Credentials.from_service_account_file(
+                    service_account_path
+                )
+                self.gcs_client = storage.Client(credentials=credentials)
+            else:
+                # Use default credentials (for GKE/GCE)
+                self.gcs_client = storage.Client()
+            
+            self.gcs_bucket_name = gcs_bucket
+            
+            # Test connection by checking if bucket exists
+            bucket = self.gcs_client.bucket(gcs_bucket)
+            if not bucket.exists():
+                # Create bucket if it doesn't exist
+                bucket = self.gcs_client.create_bucket(gcs_bucket)
+                logger.info(f"✅ Created GCS bucket: {gcs_bucket}")
+            else:
+                logger.info(f"✅ Successfully connected to GCS bucket: {gcs_bucket}")
+            
+        except ImportError as e:
+            logger.error(f"❌ GCS libraries not available: {e}")
+            raise HTTPException(status_code=500, detail="Google Cloud Storage libraries not installed")
+        except Exception as e:
+            logger.error(f"❌ GCS initialization failed: {e}")
+            raise HTTPException(status_code=500, detail="GCS storage initialization failed")
+    
     def _ensure_local_directories(self):
         """Ensure local storage directories exist."""
         directories = [STATIC_DIR, DATASET_DIR, STUDENT_PHOTOS_DIR, ATTENDANCE_PHOTOS_DIR]
@@ -86,6 +136,8 @@ class StorageManager:
             
             if self.storage_type == "s3":
                 return await self._save_to_s3(upload_file, f"student_photos/{filename}")
+            elif self.storage_type == "gcs":
+                return await self._save_to_gcs(upload_file, f"student_photos/{filename}")
             else:
                 return await self._save_to_local(upload_file, STUDENT_PHOTOS_DIR / filename)
                 
@@ -108,6 +160,8 @@ class StorageManager:
             
             if self.storage_type == "s3":
                 return await self._save_to_s3(upload_file, f"attendance_photos/{filename}")
+            elif self.storage_type == "gcs":
+                return await self._save_to_gcs(upload_file, f"attendance_photos/{filename}")
             else:
                 return await self._save_to_local(upload_file, ATTENDANCE_PHOTOS_DIR / filename)
                 
@@ -130,6 +184,9 @@ class StorageManager:
             if self.storage_type == "s3":
                 s3_path = f"dataset/{dataset_folder}/{filename}"
                 return await self._save_to_s3(upload_file, s3_path)
+            elif self.storage_type == "gcs":
+                gcs_path = f"dataset/{dataset_folder}/{filename}"
+                return await self._save_to_gcs(upload_file, gcs_path)
             else:
                 local_folder = DATASET_DIR / dataset_folder
                 local_folder.mkdir(parents=True, exist_ok=True)
@@ -149,6 +206,8 @@ class StorageManager:
             
             if self.storage_type == "s3":
                 return await self._save_bytes_to_s3(encoding_data, f"face_encodings/{filename}")
+            elif self.storage_type == "gcs":
+                return await self._save_bytes_to_gcs(encoding_data, f"face_encodings/{filename}")
             else:
                 encodings_dir = STATIC_DIR / "face_encodings"
                 encodings_dir.mkdir(parents=True, exist_ok=True)
@@ -211,6 +270,62 @@ class StorageManager:
             logger.error(f"S3 bytes upload failed: {e}")
             raise HTTPException(status_code=500, detail="Failed to upload to S3")
     
+    async def _save_to_gcs(self, upload_file: UploadFile, gcs_path: str) -> str:
+        """Save file to Google Cloud Storage and return public URL."""
+        if not self.gcs_client:
+            raise HTTPException(status_code=500, detail="GCS client not initialized")
+            
+        try:
+            # Reset file pointer to beginning
+            await upload_file.seek(0)
+            
+            # Get bucket and blob
+            bucket = self.gcs_client.bucket(self.gcs_bucket_name)
+            blob = bucket.blob(gcs_path)
+            
+            # Upload file
+            blob.upload_from_file(
+                upload_file.file,
+                content_type=upload_file.content_type or 'image/jpeg'
+            )
+            
+            # Make blob publicly readable
+            blob.make_public()
+            
+            # Return public URL
+            url = f"https://storage.googleapis.com/{self.gcs_bucket_name}/{gcs_path}"
+            logger.info(f"✅ Uploaded to GCS: {gcs_path}")
+            return url
+            
+        except Exception as e:
+            logger.error(f"GCS upload failed: {e}")
+            raise HTTPException(status_code=500, detail="Failed to upload to GCS")
+    
+    async def _save_bytes_to_gcs(self, data: bytes, gcs_path: str) -> str:
+        """Save bytes data to Google Cloud Storage and return public URL."""
+        if not self.gcs_client:
+            raise HTTPException(status_code=500, detail="GCS client not initialized")
+            
+        try:
+            # Get bucket and blob
+            bucket = self.gcs_client.bucket(self.gcs_bucket_name)
+            blob = bucket.blob(gcs_path)
+            
+            # Upload bytes
+            blob.upload_from_string(data, content_type='application/octet-stream')
+            
+            # Make blob publicly readable
+            blob.make_public()
+            
+            # Return public URL
+            url = f"https://storage.googleapis.com/{self.gcs_bucket_name}/{gcs_path}"
+            logger.info(f"✅ Uploaded bytes to GCS: {gcs_path}")
+            return url
+            
+        except Exception as e:
+            logger.error(f"GCS bytes upload failed: {e}")
+            raise HTTPException(status_code=500, detail="Failed to upload to GCS")
+    
     async def _save_to_local(self, upload_file: UploadFile, local_path: Path) -> str:
         """Save file to local filesystem and return URL."""
         try:
@@ -246,6 +361,8 @@ class StorageManager:
         try:
             if self.storage_type == "s3":
                 return await self._delete_from_s3(file_url)
+            elif self.storage_type == "gcs":
+                return await self._delete_from_gcs(file_url)
             else:
                 return await self._delete_from_local(file_url)
         except Exception as e:
@@ -289,14 +406,41 @@ class StorageManager:
             logger.error(f"Local delete failed: {e}")
             return False
     
+    async def _delete_from_gcs(self, file_url: str) -> bool:
+        """Delete file from Google Cloud Storage."""
+        if not self.gcs_client:
+            logger.error("GCS client not initialized")
+            return False
+            
+        try:
+            # Extract GCS path from URL
+            if "storage.googleapis.com" in file_url:
+                gcs_path = file_url.split(f"{self.gcs_bucket_name}/")[1]
+            else:
+                # Assume it's already a GCS path
+                gcs_path = file_url
+            
+            # Get bucket and blob
+            bucket = self.gcs_client.bucket(self.gcs_bucket_name)
+            blob = bucket.blob(gcs_path)
+            
+            # Delete blob
+            blob.delete()
+            logger.info(f"✅ Deleted from GCS: {gcs_path}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"GCS delete failed: {e}")
+            return False
+    
     def get_photo_url(self, stored_path: str) -> str:
         """
         Get the public URL for a stored photo.
-        For S3, returns the stored URL directly.
+        For S3/GCS, returns the stored URL directly.
         For local, ensures proper URL formatting.
         """
-        if self.storage_type == "s3":
-            return stored_path  # S3 URLs are stored as full URLs
+        if self.storage_type in ["s3", "gcs"]:
+            return stored_path  # S3/GCS URLs are stored as full URLs
         else:
             # Ensure local URLs are properly formatted
             if stored_path.startswith("http"):

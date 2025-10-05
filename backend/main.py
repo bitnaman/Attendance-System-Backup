@@ -19,6 +19,12 @@ from dependencies import get_db, get_face_recognizer, initialize_face_recognizer
 from utils.logging_utils import ConfigurableLoggingMiddleware, setup_logging, log_startup_info, log_shutdown_info
 from utils.storage_utils import storage_manager
 
+# Import advanced features
+from optimizations.performance_optimizer import performance_optimizer, async_processor
+from monitoring.analytics import real_time_monitoring, performance_analytics, dashboard_analytics
+from robustness.error_handling import system_monitoring, graceful_degradation
+from scalability.load_balancer import load_balancer, cache_manager
+
 # Configure CORS for production deployment
 origins = ["*"]  # Allow all origins for demo purposes. In production, specify your frontend domain.
 cors_config = {
@@ -32,6 +38,7 @@ from face_recognition import ClassBasedFaceRecognizer
 from routers.students import router as students_router
 from routers.attendance import router as attendance_router
 from routers.config import router as config_router
+from routers.monitoring import router as monitoring_router
 from config import *
 
 # Setup enhanced logging with configurable throttling
@@ -45,6 +52,24 @@ async def lifespan(app: FastAPI):
     try:
         log_startup_info()
         logger.info("Starting Dental Attendance System...")
+        
+        # Initialize advanced features
+        logger.info("🚀 Initializing advanced features...")
+        
+        # Initialize performance optimizations
+        await performance_optimizer.initialize_redis()
+        performance_optimizer.enable_gpu_memory_growth()
+        logger.info("✅ Performance optimizations initialized")
+        
+        # Initialize monitoring
+        await real_time_monitoring.initialize_redis()
+        await cache_manager.initialize_redis_cache()
+        logger.info("✅ Monitoring and analytics initialized")
+        
+        # Initialize load balancer
+        await load_balancer.initialize_redis_cluster()
+        load_balancer.add_worker("main_worker", capacity=10)
+        logger.info("✅ Load balancer initialized")
         
         # Ensure directories exist (for local storage)
         if PHOTO_STORAGE_TYPE == "local":
@@ -128,6 +153,7 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 app.include_router(students_router)
 app.include_router(attendance_router)
 app.include_router(config_router)
+app.include_router(monitoring_router)
 
 # Health check endpoint
 @app.get("/health")
