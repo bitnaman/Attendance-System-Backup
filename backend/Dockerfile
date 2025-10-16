@@ -1,17 +1,20 @@
 # Multi-stage Dockerfile for Facial Attendance System Backend
 # Optimized for GPU support and production deployment
 
-# Stage 1: Base image with CUDA support (fallback to Ubuntu for local testing)
+# Stage 1: Base image with system dependencies
 FROM ubuntu:22.04 as base
 
 # Set environment variables
-ENV DEBIAN_FRONTEND=noninteractive
-ENV PYTHONUNBUFFERED=1
-ENV TF_FORCE_GPU_ALLOW_GROWTH=true
-ENV CUDA_VISIBLE_DEVICES=0
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    TF_FORCE_GPU_ALLOW_GROWTH=true \
+    CUDA_VISIBLE_DEVICES=0 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
+# Install system dependencies including Redis tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-pip \
     python3-dev \
@@ -26,34 +29,33 @@ RUN apt-get update && apt-get install -y \
     wget \
     curl \
     git \
+    redis-tools \
+    && ln -s /usr/bin/python3 /usr/bin/python \
     && rm -rf /var/lib/apt/lists/*
 
-# Create symbolic link for python
-RUN ln -s /usr/bin/python3 /usr/bin/python
-
-# Upgrade pip and install Python dependencies
+# Upgrade pip
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 
 # Stage 2: Python dependencies
 FROM base as dependencies
 
+WORKDIR /app
+
 # Copy requirements first for better caching
-COPY requirements.txt /app/requirements.txt
+COPY requirements.txt .
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r /app/requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Stage 3: Application
 FROM dependencies as application
 
-# Set working directory
-WORKDIR /app
-
 # Copy application code
-COPY . /app/
+COPY . .
 
 # Create necessary directories
-RUN mkdir -p /app/static/dataset \
+RUN mkdir -p \
+    /app/static/dataset \
     /app/static/attendance_photos \
     /app/static/student_photos \
     /app/static/uploads \
@@ -61,18 +63,19 @@ RUN mkdir -p /app/static/dataset \
     /app/logs
 
 # Set permissions
-RUN chmod -R 755 /app/static
+RUN chmod -R 755 /app/static /app/logs
 
 # Create non-root user for security
 RUN useradd -m -u 1000 appuser && \
     chown -R appuser:appuser /app
+
 USER appuser
 
 # Expose port
 EXPOSE 8000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=30s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # Start command

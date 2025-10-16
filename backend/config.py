@@ -24,6 +24,19 @@ POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "root")
 # PostgreSQL connection URL
 DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
 
+# Redis Configuration
+REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+REDIS_DB = int(os.getenv("REDIS_DB", "0"))
+REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", "")
+REDIS_CACHE_EXPIRATION_SECONDS = int(os.getenv("REDIS_CACHE_EXPIRATION_SECONDS", "300"))
+
+# Redis connection URL
+if REDIS_PASSWORD:
+    REDIS_URL = f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
+else:
+    REDIS_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
+
 # Photo Storage Configuration
 PHOTO_STORAGE_TYPE = os.getenv("PHOTO_STORAGE_TYPE", "local").lower()  # "local" or "s3"
 
@@ -50,6 +63,17 @@ FACE_RECOGNITION_MODEL = os.getenv("FACE_RECOGNITION_MODEL", "ArcFace")  # Upgra
 FACE_DETECTOR_BACKEND = os.getenv("FACE_DETECTOR_BACKEND", "mtcnn")
 FACE_DISTANCE_THRESHOLD = float(os.getenv("FACE_DISTANCE_THRESHOLD", "18.0"))  # Adjusted for ArcFace
 FACE_CONFIDENCE_THRESHOLD = 0.65  # For older HOG-based system
+
+# Adaptive threshold configuration
+ADAPTIVE_THRESHOLD_MODE = os.getenv("ADAPTIVE_THRESHOLD_MODE", "disabled").lower()
+if ADAPTIVE_THRESHOLD_MODE not in ["enabled", "disabled"]:
+    ADAPTIVE_THRESHOLD_MODE = "disabled"  # Fallback to disabled if invalid
+
+# Compute mode configuration
+# Options: "auto" (detect automatically), "gpu" (force GPU), "cpu" (force CPU)
+COMPUTE_MODE = os.getenv("COMPUTE_MODE", "auto").lower()
+if COMPUTE_MODE not in ["auto", "gpu", "cpu"]:
+    COMPUTE_MODE = "auto"  # Fallback to auto if invalid value
 
 # Model performance configurations
 MODEL_CONFIGS = {

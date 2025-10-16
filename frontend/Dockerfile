@@ -11,16 +11,26 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm install --omit=dev
+RUN npm ci --only=production
 
 # Copy source code
 COPY . .
+
+# Build arguments for environment variables
+ARG REACT_APP_API_BASE=http://localhost:8000
+ARG REACT_APP_PHOTO_BASE=http://localhost:8000
+
+ENV REACT_APP_API_BASE=$REACT_APP_API_BASE
+ENV REACT_APP_PHOTO_BASE=$REACT_APP_PHOTO_BASE
 
 # Build the application
 RUN npm run build
 
 # Stage 2: Production stage
 FROM nginx:alpine as production
+
+# Install curl for healthcheck
+RUN apk add --no-cache curl
 
 # Copy built application
 COPY --from=build /app/build /usr/share/nginx/html
@@ -32,7 +42,7 @@ COPY nginx.conf /etc/nginx/nginx.conf
 EXPOSE 80
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
     CMD curl -f http://localhost/ || exit 1
 
 # Start nginx

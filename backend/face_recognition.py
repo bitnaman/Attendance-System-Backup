@@ -8,9 +8,57 @@ import numpy as np
 import logging
 import shutil
 from typing import Dict, Any, List, Tuple, Optional
+
+# Configure TensorFlow GPU BEFORE any TensorFlow/DeepFace imports
+try:
+    import tensorflow as tf
+    import os
+    
+    # Get COMPUTE_MODE from environment
+    COMPUTE_MODE_SETTING = os.getenv("COMPUTE_MODE", "auto").lower()
+    if COMPUTE_MODE_SETTING not in ["auto", "gpu", "cpu"]:
+        COMPUTE_MODE_SETTING = "auto"
+    
+    # Check COMPUTE_MODE setting
+    if COMPUTE_MODE_SETTING == "cpu":
+        # Force CPU mode
+        tf.config.set_visible_devices([], 'GPU')
+        print("🖥️ COMPUTE_MODE=cpu - GPU disabled, using CPU only")
+    elif COMPUTE_MODE_SETTING == "gpu":
+        # Force GPU mode - will fail if GPU not available
+        gpus = tf.config.list_physical_devices('GPU')
+        if not gpus:
+            raise RuntimeError("COMPUTE_MODE=gpu but no GPU devices found!")
+        # Enable memory growth for GPUs
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+        print(f"🚀 COMPUTE_MODE=gpu - Forcing GPU mode ({len(gpus)} GPU(s) available)")
+    else:  # auto mode
+        # Auto-detect: enable GPU if available, fallback to CPU
+        gpus = tf.config.list_physical_devices('GPU')
+        if gpus:
+            try:
+                # Enable memory growth BEFORE GPU initialization
+                for gpu in gpus:
+                    tf.config.experimental.set_memory_growth(gpu, True)
+                print(f"⚡ COMPUTE_MODE=auto - GPU detected, using {len(gpus)} GPU(s)")
+            except RuntimeError as e:
+                print(f"⚠️ COMPUTE_MODE=auto - GPU setup failed: {e}, falling back to CPU")
+        else:
+            print("🖥️ COMPUTE_MODE=auto - No GPU detected, using CPU")
+    
+    # Set log level to reduce clutter
+    tf.get_logger().setLevel('ERROR')
+    
+except Exception as e:
+    print(f"⚠️ TensorFlow configuration error: {e}")
+
 from deepface import DeepFace
 from utils.logging_utils import create_throttled_logger
-from config import LOG_THROTTLE_MS, FACE_RECOGNITION_MODEL, FACE_DETECTOR_BACKEND, FACE_DISTANCE_THRESHOLD, MODEL_CONFIGS
+from config import (
+    LOG_THROTTLE_MS, FACE_RECOGNITION_MODEL, FACE_DETECTOR_BACKEND, 
+    FACE_DISTANCE_THRESHOLD, MODEL_CONFIGS, COMPUTE_MODE, ADAPTIVE_THRESHOLD_MODE
+)
 
 # --- Enhanced Configuration Constants for Better Accuracy ---
 RECOGNITION_MODEL = FACE_RECOGNITION_MODEL  # Now configurable via config.py
@@ -18,6 +66,21 @@ DETECTOR_BACKEND = FACE_DETECTOR_BACKEND    # Now configurable via config.py
 DISTANCE_THRESHOLD = FACE_DISTANCE_THRESHOLD  # Now configurable via config.py
 MIN_CONFIDENCE_THRESHOLD = 0.10   # Minimum confidence to consider a match (10%)
 ENHANCED_PREPROCESSING = True      # Enable enhanced image preprocessing
+
+# 🚀 GROUP PHOTO OPTIMIZATION SETTINGS
+ENABLE_ADAPTIVE_THRESHOLD = (ADAPTIVE_THRESHOLD_MODE == "enabled")  # Controlled by .env file
+ENABLE_MULTI_DETECTOR = True       # Use multiple detectors for better coverage
+ENABLE_QUALITY_ASSESSMENT = True   # Filter and prioritize high-quality faces
+MIN_FACE_SIZE = 30                 # Minimum face size in pixels
+MIN_FACE_QUALITY_SCORE = 0.3       # Minimum quality score (0-1)
+
+# Adaptive threshold configuration
+THRESHOLD_SINGLE_PHOTO = DISTANCE_THRESHOLD      # Strict for 1-2 faces
+THRESHOLD_SMALL_GROUP = DISTANCE_THRESHOLD + 4   # Moderate for 3-10 faces
+THRESHOLD_LARGE_GROUP = DISTANCE_THRESHOLD + 8   # Relaxed for 11+ faces
+
+# Multi-detector fallback order (best to most forgiving)
+DETECTOR_CASCADE = ['mtcnn', 'retinaface', 'mediapipe', 'opencv']
 
 # Get model-specific configuration
 MODEL_CONFIG = MODEL_CONFIGS.get(RECOGNITION_MODEL, {"threshold": 20.0, "embedding_size": 512})
@@ -43,6 +106,137 @@ DISTANCE_THRESHOLD = EFFECTIVE_THRESHOLD
 
 # Create throttled logger for face recognition
 logger = create_throttled_logger(__name__, LOG_THROTTLE_MS)
+
+
+# 🎯 Helper Functions for Face Quality Assessment
+def calculate_face_quality_score(face_image: np.ndarray, facial_area: dict) -> float:
+    """
+    Calculate comprehensive quality score for a detected face.
+    Returns score between 0-1 (higher is better)
+    """
+    try:
+        # Convert to grayscale for analysis
+        if len(face_image.shape) == 3:
+            gray = cv2.cvtColor(face_image, cv2.COLOR_RGB2GRAY)
+        else:
+            gray = face_image
+        
+        # 1. Sharpness Score (Laplacian variance)
+        laplacian_var = cv2.Laplacian(gray, cv2.CV_64F).var()
+        sharpness_score = min(laplacian_var / 500.0, 1.0)  # Normalize to 0-1
+        
+        # 2. Size Score (face area)
+        face_width = facial_area.get('w', 0)
+        face_height = facial_area.get('h', 0)
+        face_area_pixels = face_width * face_height
+        size_score = min(face_area_pixels / 10000.0, 1.0)  # Normalize (100x100 = good)
+        
+        # 3. Brightness Score (mean luminance)
+        mean_brightness = np.mean(gray)
+        # Optimal brightness around 100-150
+        brightness_score = 1.0 - abs(mean_brightness - 125) / 125.0
+        brightness_score = max(0, brightness_score)
+        
+        # 4. Contrast Score (standard deviation)
+        contrast = np.std(gray)
+        contrast_score = min(contrast / 50.0, 1.0)  # Normalize
+        
+        # Combined quality score (weighted average)
+        quality_score = (
+            sharpness_score * 0.35 +
+            size_score * 0.30 +
+            brightness_score * 0.20 +
+            contrast_score * 0.15
+        )
+        
+        return quality_score
+    except Exception as e:
+        logger.debug(f"Quality assessment failed: {e}")
+        return 0.5  # Default moderate quality
+
+
+def get_adaptive_threshold(num_faces: int, face_quality: float, base_threshold: float) -> float:
+    """
+    Calculate adaptive threshold based on photo complexity and face quality.
+    
+    Args:
+        num_faces: Number of faces detected in photo
+        face_quality: Quality score of the face (0-1)
+        base_threshold: Base threshold from config
+    
+    Returns:
+        Adjusted threshold value
+    """
+    if not ENABLE_ADAPTIVE_THRESHOLD:
+        return base_threshold
+    
+    # Start with scenario-based threshold
+    if num_faces <= 2:
+        scenario_threshold = THRESHOLD_SINGLE_PHOTO
+    elif num_faces <= 10:
+        scenario_threshold = THRESHOLD_SMALL_GROUP
+    else:
+        scenario_threshold = THRESHOLD_LARGE_GROUP
+    
+    # Adjust based on face quality
+    if ENABLE_QUALITY_ASSESSMENT:
+        if face_quality >= 0.7:
+            # High quality - can use stricter threshold
+            quality_adjustment = -2.0
+        elif face_quality >= 0.5:
+            # Medium quality - use scenario threshold as-is
+            quality_adjustment = 0
+        else:
+            # Low quality - relax threshold further
+            quality_adjustment = 3.0
+        
+        final_threshold = scenario_threshold + quality_adjustment
+    else:
+        final_threshold = scenario_threshold
+    
+    # Ensure reasonable bounds
+    final_threshold = max(base_threshold - 2, min(final_threshold, base_threshold + 12))
+    
+    return final_threshold
+
+
+def enhance_face_image(face_image: np.ndarray) -> np.ndarray:
+    """
+    Apply preprocessing to improve face image quality.
+    
+    Args:
+        face_image: Input face image (RGB or grayscale)
+    
+    Returns:
+        Enhanced face image
+    """
+    try:
+        # Convert to RGB if needed
+        if len(face_image.shape) == 2:
+            face_rgb = cv2.cvtColor(face_image, cv2.COLOR_GRAY2RGB)
+        else:
+            face_rgb = face_image.copy()
+        
+        # 1. Histogram Equalization (in YCrCb space to preserve color)
+        ycrcb = cv2.cvtColor(face_rgb, cv2.COLOR_RGB2YCrCb)
+        ycrcb[:, :, 0] = cv2.equalizeHist(ycrcb[:, :, 0])
+        face_rgb = cv2.cvtColor(ycrcb, cv2.COLOR_YCrCb2RGB)
+        
+        # 2. Adaptive Sharpening
+        gaussian = cv2.GaussianBlur(face_rgb, (0, 0), 2.0)
+        face_rgb = cv2.addWeighted(face_rgb, 1.5, gaussian, -0.5, 0)
+        
+        # 3. Denoise (mild to preserve details)
+        face_rgb = cv2.fastNlMeansDenoisingColored(face_rgb, None, 10, 10, 7, 21)
+        
+        # 4. Normalize to [0, 255] range
+        face_rgb = np.clip(face_rgb, 0, 255).astype(np.uint8)
+        
+        return face_rgb
+    except Exception as e:
+        logger.debug(f"Face enhancement failed: {e}")
+        return face_image  # Return original if enhancement fails
+
 
 
 class ClassBasedFaceRecognizer:
@@ -72,6 +266,7 @@ class ClassBasedFaceRecognizer:
             logger.info(f"   🧠 Architecture: {RECOGNITION_MODEL}")
             logger.info(f"   👁️ Detector Backend: {DETECTOR_BACKEND}")
             logger.info(f"   📏 Distance Threshold: {DISTANCE_THRESHOLD} ({THRESHOLD_SOURCE})")
+            logger.info(f"   🎯 Adaptive Threshold: {'✅ ENABLED (auto-adjusts for groups)' if ENABLE_ADAPTIVE_THRESHOLD else '🔒 DISABLED (fixed threshold)'}")
             logger.info(f"   🎯 Min Confidence: {MIN_CONFIDENCE_THRESHOLD}")
             logger.info(f"   🔧 Enhanced Preprocessing: {'✅ Enabled' if ENHANCED_PREPROCESSING else '❌ Disabled'}")
             
@@ -93,46 +288,77 @@ class ClassBasedFaceRecognizer:
 
     def _check_tensorflow_setup(self):
         """
-        Check TensorFlow installation and GPU availability.
-        Only configure if everything is working properly.
+        Check TensorFlow installation and GPU availability based on COMPUTE_MODE.
         """
         try:
             import tensorflow as tf
             self.tf_version = tf.__version__
             logger.info(f"🔧 TENSORFLOW SETUP")
             logger.info(f"   📦 Version: {self.tf_version}")
+            logger.info(f"   ⚙️ Compute Mode: {COMPUTE_MODE.upper()}")
             
-            # Check for GPU availability
+            # Check actual GPU availability
             gpus = tf.config.list_physical_devices('GPU')
+            gpu_count = len(gpus)
             
-            if gpus:
-                try:
-                    # Enable memory growth for all GPUs to prevent memory issues
-                    for gpu in gpus:
-                        tf.config.experimental.set_memory_growth(gpu, True)
-                    
-                    # Test GPU computation to ensure it actually works
-                    with tf.device('/GPU:0'):
-                        test_tensor = tf.constant([1.0, 2.0, 3.0])
-                        test_result = tf.reduce_sum(test_tensor)
-                    
+            # Determine if GPU should be used based on COMPUTE_MODE
+            if COMPUTE_MODE == "cpu":
+                # CPU mode forced
+                self.gpu_available = False
+                logger.info(f"   🖥️ Mode: CPU ONLY (forced)")
+                logger.info(f"   💡 GPU detection: {gpu_count} GPU(s) available but not used")
+                
+            elif COMPUTE_MODE == "gpu":
+                # GPU mode forced
+                if gpu_count > 0:
                     self.gpu_available = True
-                    logger.info(f"   🚀 GPU Acceleration: ✅ ENABLED")
-                    logger.info(f"   🎮 GPU Count: {len(gpus)}")
+                    logger.info(f"   🚀 GPU Acceleration: ✅ ENABLED (forced)")
+                    logger.info(f"   🎮 GPU Count: {gpu_count}")
                     for i, gpu in enumerate(gpus):
                         logger.info(f"      GPU {i}: {gpu.name}")
-                    logger.info(f"   ✅ GPU Test: PASSED ({test_result.numpy()})")
                     
-                except Exception as gpu_error:
+                    # Test GPU computation
+                    try:
+                        with tf.device('/GPU:0'):
+                            test_tensor = tf.constant([1.0, 2.0, 3.0])
+                            test_result = tf.reduce_sum(test_tensor)
+                        logger.info(f"   ✅ GPU Test: PASSED ({test_result.numpy()})")
+                    except Exception as gpu_error:
+                        logger.warning(f"   ⚠️ GPU Test: FAILED - {gpu_error}")
+                        logger.info(f"   ℹ️ GPU is still available despite test failure")
+                else:
+                    # GPU forced but not available - this is an error
                     self.gpu_available = False
-                    logger.warning(f"   ⚠️ GPU Test: FAILED - {gpu_error}")
-                    logger.warning(f"   � Fallback: CPU computation (slower)")
-            else:
-                self.gpu_available = False
-                logger.info(f"   💻 Compute Mode: CPU only")
+                    logger.error(f"   ❌ COMPUTE_MODE=gpu but no GPU available!")
+                    logger.error(f"   💡 Tip: Change COMPUTE_MODE to 'auto' or 'cpu' in .env")
+                    
+            else:  # auto mode
+                # Auto-detect
+                if gpu_count > 0:
+                    self.gpu_available = True
+                    logger.info(f"   🚀 GPU Acceleration: ✅ ENABLED (auto-detected)")
+                    logger.info(f"   🎮 GPU Count: {gpu_count}")
+                    for i, gpu in enumerate(gpus):
+                        logger.info(f"      GPU {i}: {gpu.name}")
+                    
+                    # Test GPU computation
+                    try:
+                        with tf.device('/GPU:0'):
+                            test_tensor = tf.constant([1.0, 2.0, 3.0])
+                            test_result = tf.reduce_sum(test_tensor)
+                        logger.info(f"   ✅ GPU Test: PASSED ({test_result.numpy()})")
+                    except Exception as gpu_error:
+                        logger.warning(f"   ⚠️ GPU Test: FAILED - {gpu_error}")
+                        logger.info(f"   ℹ️ GPU is still available despite test failure")
+                else:
+                    self.gpu_available = False
+                    logger.info(f"   🖥️ Compute Mode: CPU only (no GPU detected)")
+            # Show GPU performance tips only for auto mode with no GPU
+            if COMPUTE_MODE == "auto" and not self.gpu_available:
                 logger.info(f"   💡 GPU Performance Tips:")
                 logger.info(f"      • Install NVIDIA GPU with CUDA support")
                 logger.info(f"      • Install: pip install tensorflow[and-cuda]")
+                logger.info(f"      • Or set COMPUTE_MODE=cpu in .env to suppress this message")
                 
         except ImportError:
             logger.error("❌ TensorFlow not found! Install with: pip install tensorflow[and-cuda]")
@@ -515,18 +741,58 @@ class ClassBasedFaceRecognizer:
             }
 
         face_detection_start = time.time()
-        try:
-            detected_faces = DeepFace.extract_faces(
-                img_path=image_path,
-                detector_backend=DETECTOR_BACKEND,
-                enforce_detection=False
-            )
-        except Exception as e:
-            logger.error(f"DeepFace.extract_faces failed for image {image_path}: {e}")
-            return {"error": f"Face extraction failed: {e}"}
+        detected_faces = []
+        
+        # 🚀 MULTI-DETECTOR CASCADE for better coverage in group photos
+        if ENABLE_MULTI_DETECTOR:
+            logger.info(f"🔍 Using multi-detector cascade: {DETECTOR_CASCADE}")
+            
+            for detector in DETECTOR_CASCADE:
+                try:
+                    faces = DeepFace.extract_faces(
+                        img_path=image_path,
+                        detector_backend=detector,
+                        enforce_detection=False
+                    )
+                    
+                    if faces:
+                        detected_faces = faces
+                        logger.info(f"✅ Detector '{detector}' found {len(faces)} faces")
+                        break  # Use first successful detector
+                    else:
+                        logger.debug(f"⚠️ Detector '{detector}' found no faces, trying next...")
+                        
+                except Exception as e:
+                    logger.debug(f"❌ Detector '{detector}' failed: {e}")
+                    continue
+            
+            if not detected_faces:
+                logger.warning("⚠️ All detectors failed to find faces")
+        else:
+            # Original single detector method
+            try:
+                detected_faces = DeepFace.extract_faces(
+                    img_path=image_path,
+                    detector_backend=DETECTOR_BACKEND,
+                    enforce_detection=False
+                )
+            except Exception as e:
+                logger.error(f"DeepFace.extract_faces failed for image {image_path}: {e}")
+                return {"error": f"Face extraction failed: {e}"}
         
         face_detection_time = time.time() - face_detection_start
-        logger.info(f"⏱️ Face Detection: {face_detection_time:.2f}s - Found {len(detected_faces)} faces")
+        num_faces = len(detected_faces)
+        logger.info(f"⏱️ Face Detection: {face_detection_time:.2f}s - Found {num_faces} faces")
+        
+        # 🎯 Log adaptive threshold strategy
+        if ENABLE_ADAPTIVE_THRESHOLD:
+            if num_faces <= 2:
+                logger.info(f"📊 Photo type: SINGLE/PAIR - Using strict threshold")
+            elif num_faces <= 10:
+                logger.info(f"📊 Photo type: SMALL GROUP - Using moderate threshold")
+            else:
+                logger.info(f"📊 Photo type: LARGE GROUP - Using relaxed threshold")
+
 
         results = {
             "total_faces_detected": len(detected_faces),
@@ -551,6 +817,33 @@ class ClassBasedFaceRecognizer:
             faces_processed += 1
             face_start = time.time()
             facial_area = face_obj.get('facial_area', {})
+            face_image = face_obj.get('face')
+            
+            # 🎯 QUALITY ASSESSMENT
+            face_quality = 0.5  # Default moderate quality
+            if ENABLE_QUALITY_ASSESSMENT and face_image is not None:
+                face_quality = calculate_face_quality_score(face_image, facial_area)
+                logger.debug(f"Face {faces_processed} quality score: {face_quality:.2f}")
+                
+                # Skip very low quality faces
+                if face_quality < MIN_FACE_QUALITY_SCORE:
+                    logger.info(f"⚠️ Face {faces_processed} rejected (quality {face_quality:.2f} < {MIN_FACE_QUALITY_SCORE})")
+                    results['unidentified_faces_count'] += 1
+                    continue
+                
+                # Apply face enhancement for low-medium quality faces
+                if face_quality < 0.7:
+                    logger.debug(f"🔧 Enhancing face {faces_processed} (quality: {face_quality:.2f})")
+                    face_image = enhance_face_image(face_image)
+            
+            # Check minimum face size
+            face_width = facial_area.get('w', 0)
+            face_height = facial_area.get('h', 0)
+            if face_width < MIN_FACE_SIZE or face_height < MIN_FACE_SIZE:
+                logger.info(f"⚠️ Face {faces_processed} too small ({face_width}x{face_height} < {MIN_FACE_SIZE}px)")
+                results['unidentified_faces_count'] += 1
+                continue
+            
             try:
                 # Enhanced face recognition with multiple validation approaches
                 detected_embedding = None
@@ -566,8 +859,11 @@ class ClassBasedFaceRecognizer:
                     
                     for method in extraction_methods:
                         try:
+                            # Use enhanced face image if available
+                            input_image = face_image if face_image is not None else face_obj['face']
+                            
                             embedding_obj = DeepFace.represent(
-                                img_path=face_obj['face'], 
+                                img_path=input_image, 
                                 model_name=RECOGNITION_MODEL, 
                                 enforce_detection=False, 
                                 detector_backend='skip',  # Face already detected
@@ -588,7 +884,8 @@ class ClassBasedFaceRecognizer:
                             continue
                     
                     if detected_embedding is None:
-                        logger.warning(f"All enhanced extraction methods failed for a face")
+                        logger.warning(f"All enhanced extraction methods failed for face {faces_processed}")
+                        results['unidentified_faces_count'] += 1
                         continue
                 else:
                     # Original method
@@ -601,12 +898,18 @@ class ClassBasedFaceRecognizer:
                     detected_embedding = embedding_obj[0]["embedding"]  # type: ignore
                     
             except Exception as e:
-                logger.warning(f"Could not generate embedding for a detected face: {e}")
+                logger.warning(f"Could not generate embedding for face {faces_processed}: {e}")
+                results['unidentified_faces_count'] += 1
                 continue
+
+            # 🎯 ADAPTIVE THRESHOLD based on photo complexity and face quality
+            adaptive_threshold = get_adaptive_threshold(num_faces, face_quality, DISTANCE_THRESHOLD)
+            logger.debug(f"Face {faces_processed}: threshold={adaptive_threshold:.1f} (quality={face_quality:.2f})")
 
             # Enhanced matching with multiple distance metrics
             min_distance = float('inf')
             best_student_idx = -1
+            second_best_distance = float('inf')
             confidence_scores = []
 
             for i, known_embedding in enumerate(known_embeddings):
@@ -624,8 +927,11 @@ class ClassBasedFaceRecognizer:
                 combined_distance = (0.7 * euclidean_dist) + (0.3 * cosine_distance * 20)  # Scale cosine to similar range
                 
                 if combined_distance < min_distance:
+                    second_best_distance = min_distance  # Track second-best for ambiguity detection
                     min_distance = combined_distance
                     best_student_idx = i
+                elif combined_distance < second_best_distance:
+                    second_best_distance = combined_distance
                     
                 # Store additional confidence metrics
                 confidence_scores.append({
@@ -635,53 +941,81 @@ class ClassBasedFaceRecognizer:
                     'combined': combined_distance
                 })
             
+            # 🎯 ENHANCED MATCHING DECISION with adaptive threshold
             if best_student_idx != -1:
-                logger.debug(f"🎯 Best match: '{students_to_match[best_student_idx]['name']}' distance={min_distance:.4f}")
-
-            # Enhanced confidence calculation with stricter thresholds
-            if best_student_idx != -1 and min_distance < DISTANCE_THRESHOLD:
                 matched_student = students_to_match[best_student_idx]
                 
-                # Multi-factor confidence calculation
-                base_confidence = float(max(0, 1 - (min_distance / DISTANCE_THRESHOLD)))
+                # Calculate match confidence
+                base_confidence = float(max(0, 1 - (min_distance / adaptive_threshold)))
                 
-                # Find the correct confidence score entry for the best match
-                best_confidence_entry = None
-                for conf in confidence_scores:
-                    if conf['student_idx'] == best_student_idx:
-                        best_confidence_entry = conf
-                        break
-                
-                # Additional confidence factors
+                # Find cosine similarity for best match
+                best_confidence_entry = next(
+                    (conf for conf in confidence_scores if conf['student_idx'] == best_student_idx),
+                    None
+                )
                 cosine_sim = best_confidence_entry['cosine_sim'] if best_confidence_entry else 0.0
-                cosine_confidence = max(0, cosine_sim)  # Cosine similarity (0 to 1)
+                cosine_confidence = max(0, cosine_sim)
                 
                 # Combined confidence (weighted average)
                 final_confidence = (0.6 * base_confidence) + (0.4 * cosine_confidence)
                 
-                # Apply minimum confidence threshold
-                if final_confidence >= MIN_CONFIDENCE_THRESHOLD:
-                    results["identified_students"].append({
-                        'student_id': matched_student['id'],
-                        'name': matched_student['name'],
-                        'roll_no': matched_student['roll_no'],
-                        'class_id': matched_student['class_id'],
-                        'confidence': float(final_confidence),
-                        'facial_area': facial_area,
-                        'euclidean_distance': float(min_distance),
-                        'cosine_similarity': float(cosine_sim)
-                    })
-                    matched_student_indices.add(best_student_idx)
-                    logger.debug(f"✅ MATCH: {matched_student['name']} (confidence: {final_confidence:.3f}, euclidean: {min_distance:.2f}, cosine: {cosine_sim:.3f})")
+                # ⚠️ AMBIGUITY DETECTION: Check if match is clearly the best
+                ambiguity_margin = second_best_distance - min_distance
+                is_ambiguous = ambiguity_margin < 3.0  # Require reasonable separation
+                
+                # Quality-adjusted confidence
+                quality_adjusted_confidence = final_confidence * (0.7 + 0.3 * face_quality)
+                
+                # DECISION LOGIC
+                match_accepted = False
+                match_reason = ""
+                
+                if min_distance < adaptive_threshold:
+                    if is_ambiguous:
+                        # Ambiguous match - require higher confidence
+                        if quality_adjusted_confidence >= 0.7:
+                            match_accepted = True
+                            match_reason = f"ambiguous match (margin={ambiguity_margin:.1f}) but high confidence"
+                        else:
+                            match_reason = f"rejected due to ambiguity (margin={ambiguity_margin:.1f}, conf={quality_adjusted_confidence:.2f})"
+                    else:
+                        # Clear winner
+                        match_accepted = True
+                        match_reason = f"clear match (margin={ambiguity_margin:.1f})"
+                else:
+                    match_reason = f"distance {min_distance:.1f} > threshold {adaptive_threshold:.1f}"
+                
+                logger.debug(f"🎯 Best match: '{matched_student['name']}' - {match_reason}")
+                
+                if match_accepted:
+                    # Apply minimum confidence threshold
+                    if quality_adjusted_confidence >= MIN_CONFIDENCE_THRESHOLD:
+                        results["identified_students"].append({
+                            'student_id': matched_student['id'],
+                            'name': matched_student['name'],
+                            'roll_no': matched_student['roll_no'],
+                            'class_id': matched_student['class_id'],
+                            'confidence': float(quality_adjusted_confidence),
+                            'facial_area': facial_area,
+                            'euclidean_distance': float(min_distance),
+                            'cosine_similarity': float(cosine_sim),
+                            'face_quality': float(face_quality),
+                            'threshold_used': float(adaptive_threshold)
+                        })
+                        matched_student_indices.add(best_student_idx)
+                        logger.info(f"✅ MATCH #{faces_processed}: {matched_student['name']} "
+                                  f"(conf: {quality_adjusted_confidence:.2f}, dist: {min_distance:.1f}, "
+                                  f"quality: {face_quality:.2f}, threshold: {adaptive_threshold:.1f})")
+                    else:
+                        results["unidentified_faces_count"] += 1
+                        logger.debug(f"❌ REJECTED: {matched_student['name']} - confidence too low "
+                                   f"({quality_adjusted_confidence:.3f} < {MIN_CONFIDENCE_THRESHOLD})")
                 else:
                     results["unidentified_faces_count"] += 1
-                    logger.debug(f"❌ REJECTED: {matched_student['name']} - confidence too low ({final_confidence:.3f} < {MIN_CONFIDENCE_THRESHOLD})")
+                    logger.debug(f"❌ REJECTED: {match_reason}")
             else:
                 results["unidentified_faces_count"] += 1
-                if best_student_idx != -1:
-                    logger.debug(f"❌ REJECTED: Distance too high ({min_distance:.2f} >= {DISTANCE_THRESHOLD})")
-                else:
-                    logger.debug(f"❌ NO MATCH: No suitable candidate found")
+                logger.debug(f"❌ NO MATCH: No suitable candidate found")
             
             # Log timing for this face
             face_time = time.time() - face_start
@@ -695,12 +1029,28 @@ class ClassBasedFaceRecognizer:
         total_faces = results["total_faces_detected"]
         unidentified_count = results["unidentified_faces_count"]
         
+        # Calculate accuracy metrics
+        if total_faces > 0:
+            accuracy_rate = (identified_count / total_faces) * 100
+        else:
+            accuracy_rate = 0
+        
         logger.info(f"⏱️ Face Recognition: {recognition_time:.2f}s - Processed {faces_processed} faces")
         logger.info(f"⏱️ Total Processing Time: {total_time:.2f}s")
-        logger.info(f"🎯 Face Recognition Summary: {identified_count}/{total_faces} faces identified, {unidentified_count} unidentified")
+        logger.info(f"📊 RECOGNITION SUMMARY:")
+        logger.info(f"   ✅ Identified: {identified_count}/{total_faces} ({accuracy_rate:.1f}%)")
+        logger.info(f"   ❌ Unidentified: {unidentified_count}")
+        logger.info(f"   🎯 Adaptive Threshold: {'Enabled' if ENABLE_ADAPTIVE_THRESHOLD else 'Disabled'}")
+        logger.info(f"   🔍 Multi-Detector: {'Enabled' if ENABLE_MULTI_DETECTOR else 'Disabled'}")
+        logger.info(f"   ⭐ Quality Filter: {'Enabled' if ENABLE_QUALITY_ASSESSMENT else 'Disabled'}")
+        
         if identified_count > 0:
             identified_names = [student['name'] for student in results["identified_students"]]
-            logger.info(f"✅ Identified students: {', '.join(identified_names)}")
+            avg_confidence = sum(s['confidence'] for s in results["identified_students"]) / identified_count
+            avg_quality = sum(s.get('face_quality', 0.5) for s in results["identified_students"]) / identified_count
+            logger.info(f"   📝 Students: {', '.join(identified_names)}")
+            logger.info(f"   📈 Avg Confidence: {avg_confidence:.2f}")
+            logger.info(f"   ⭐ Avg Face Quality: {avg_quality:.2f}")
                 
         return results
 

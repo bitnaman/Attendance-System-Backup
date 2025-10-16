@@ -29,7 +29,22 @@ class PerformanceOptimizer:
     async def initialize_redis(self):
         """Initialize Redis for caching"""
         try:
-            self.redis_client = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
+            from config import REDIS_HOST, REDIS_PORT, REDIS_DB, REDIS_PASSWORD
+            if REDIS_PASSWORD:
+                self.redis_client = redis.Redis(
+                    host=REDIS_HOST, 
+                    port=REDIS_PORT, 
+                    db=REDIS_DB, 
+                    password=REDIS_PASSWORD,
+                    decode_responses=True
+                )
+            else:
+                self.redis_client = redis.Redis(
+                    host=REDIS_HOST, 
+                    port=REDIS_PORT, 
+                    db=REDIS_DB, 
+                    decode_responses=True
+                )
             await self.redis_client.ping()
             logger.info("✅ Redis cache initialized")
         except Exception as e:

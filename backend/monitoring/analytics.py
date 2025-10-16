@@ -39,7 +39,20 @@ class RealTimeMonitoring:
     async def initialize_redis(self):
         """Initialize Redis for metrics storage"""
         try:
-            self.redis_client = redis.Redis(host='localhost', port=6379, db=2)
+            from config import REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
+            if REDIS_PASSWORD:
+                self.redis_client = redis.Redis(
+                    host=REDIS_HOST, 
+                    port=REDIS_PORT, 
+                    db=2,
+                    password=REDIS_PASSWORD
+                )
+            else:
+                self.redis_client = redis.Redis(
+                    host=REDIS_HOST, 
+                    port=REDIS_PORT, 
+                    db=2
+                )
             await self.redis_client.ping()
             logger.info("✅ Redis monitoring initialized")
         except Exception as e:

@@ -30,7 +30,20 @@ class LoadBalancer:
     async def initialize_redis_cluster(self):
         """Initialize Redis cluster for distributed processing"""
         try:
-            self.redis_client = redis.Redis(host='localhost', port=6379, db=0)
+            from config import REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
+            if REDIS_PASSWORD:
+                self.redis_client = redis.Redis(
+                    host=REDIS_HOST, 
+                    port=REDIS_PORT, 
+                    db=0,
+                    password=REDIS_PASSWORD
+                )
+            else:
+                self.redis_client = redis.Redis(
+                    host=REDIS_HOST, 
+                    port=REDIS_PORT, 
+                    db=0
+                )
             await self.redis_client.ping()
             logger.info("✅ Redis cluster initialized for load balancing")
         except Exception as e:
@@ -335,13 +348,28 @@ class CacheManager:
         }
     
     async def initialize_redis_cache(self):
-        """Initialize Redis for distributed caching"""
+        """Initialize Redis for caching"""
         try:
-            self.redis_client = redis.Redis(host='localhost', port=6379, db=1)
+            from config import REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
+            if REDIS_PASSWORD:
+                self.redis_client = redis.Redis(
+                    host=REDIS_HOST, 
+                    port=REDIS_PORT, 
+                    db=1,
+                    password=REDIS_PASSWORD,
+                    decode_responses=True
+                )
+            else:
+                self.redis_client = redis.Redis(
+                    host=REDIS_HOST, 
+                    port=REDIS_PORT, 
+                    db=1,
+                    decode_responses=True
+                )
             await self.redis_client.ping()
             logger.info("✅ Redis cache initialized")
         except Exception as e:
-            logger.warning(f"Redis cache not available: {e}")
+            logger.warning(f"Redis caching not available: {e}")
     
     async def get(self, key: str) -> Optional[Any]:
         """Get value from cache"""
