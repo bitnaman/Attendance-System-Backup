@@ -36503,3 +36503,292 @@ x = MyLayer()(x)
 
 2025-10-20 15:52:57,443 - utils.storage_utils - INFO - ✅ Deleted locally: /home/bitbuggy/Naman_Projects/Facial_Attendance_System/backend/static/dataset/Naman_Yadav_41/1.jpeg
 2025-10-20 15:52:57,446 - utils.logging_utils - INFO - ⚠️ POST /student/ - Status: 400 - Time: 0.630s
+2025-10-20 16:02:59,796 - utils.logging_utils - INFO - 🛑 Shutting down BTech Attendance System
+2025-10-20 16:02:59,797 - utils.logging_utils - INFO - 👋 Goodbye!
+2025-10-20 16:04:45,703 - utils.logging_utils - INFO - ✅ Logging configuration completed (throttle interval: 1000ms)
+2025-10-20 16:04:50,547 - utils.logging_utils - INFO - ✅ Logging configuration completed (throttle interval: 1000ms)
+2025-10-20 16:04:50,636 - utils.logging_utils - INFO - ✅ Logging configuration completed (throttle interval: 1000ms)
+2025-10-20 16:04:50,687 - utils.logging_utils - INFO - 🚀 Starting BTech Attendance System
+2025-10-20 16:04:50,687 - utils.logging_utils - INFO - ============================================================
+2025-10-20 16:04:50,687 - utils.logging_utils - INFO - 📊 SYSTEM CONFIGURATION
+2025-10-20 16:04:50,687 - utils.logging_utils - INFO - 🐍 Python version: 3.10.12 (main, Aug 15 2025, 14:32:43) [GCC 11.4.0]
+2025-10-20 16:04:50,687 - utils.logging_utils - INFO - 💻 Platform: Linux-6.8.0-85-generic-x86_64-with-glibc2.35
+2025-10-20 16:04:50,687 - utils.logging_utils - INFO - 🌐 Server: 0.0.0.0:8000
+2025-10-20 16:04:50,687 - utils.logging_utils - INFO - 📝 Log throttle: 1000ms
+2025-10-20 16:04:50,688 - utils.logging_utils - INFO - 🗃️ DATABASE CONFIGURATION
+2025-10-20 16:04:50,688 - utils.logging_utils - INFO - � Database: localhost:5432/dental_attendance
+2025-10-20 16:04:50,688 - utils.logging_utils - INFO - 📁 STORAGE CONFIGURATION
+2025-10-20 16:04:50,688 - utils.logging_utils - INFO - 💾 Storage type: local
+2025-10-20 16:04:50,688 - utils.logging_utils - INFO - 🏠 Using local file storage
+2025-10-20 16:04:50,688 - utils.logging_utils - INFO - 🤖 FACE RECOGNITION CONFIGURATION
+2025-10-20 16:04:50,688 - utils.logging_utils - INFO - 🧠 Model: Facenet512
+2025-10-20 16:04:50,688 - utils.logging_utils - INFO - 👁️ Detector: mtcnn
+2025-10-20 16:04:50,688 - utils.logging_utils - INFO - 📏 .env Threshold: 16.0 (explicit)
+2025-10-20 16:04:50,688 - utils.logging_utils - INFO - ⚙️ Model Default - Threshold: 20.0, Embedding Size: 512
+2025-10-20 16:04:50,688 - utils.logging_utils - INFO - 🔄 Effective Threshold: 16.0 (using explicit .env value)
+2025-10-20 16:04:50,688 - utils.logging_utils - INFO - 📋 Available Models:
+2025-10-20 16:04:50,688 - utils.logging_utils - INFO -    🟢 ACTIVE Facenet512: threshold=20.0, embedding=512d
+2025-10-20 16:04:50,688 - utils.logging_utils - INFO -    ⚪ ArcFace: threshold=18.0, embedding=512d
+2025-10-20 16:04:50,688 - utils.logging_utils - INFO -    ⚪ Facenet: threshold=15.0, embedding=128d
+2025-10-20 16:04:50,688 - utils.logging_utils - INFO -    ⚪ GhostFaceNet: threshold=19.0, embedding=512d
+2025-10-20 16:04:50,688 - utils.logging_utils - INFO -    ⚪ SFace: threshold=12.0, embedding=128d
+2025-10-20 16:04:50,688 - utils.logging_utils - INFO - 🔍 DETECTOR CONFIGURATION
+2025-10-20 16:04:50,688 - utils.logging_utils - INFO - 🎯 Active Detector: mtcnn
+2025-10-20 16:04:50,688 - utils.logging_utils - INFO -    📝 Multi-task CNN - Very accurate
+2025-10-20 16:04:50,688 - utils.logging_utils - INFO -    ⚡ Performance: Moderate
+2025-10-20 16:04:50,688 - utils.logging_utils - INFO -    🎯 Accuracy: High
+2025-10-20 16:04:50,688 - utils.logging_utils - INFO - 📋 Available Detectors:
+2025-10-20 16:04:50,688 - utils.logging_utils - INFO -    ✅ opencv: Fast performance, Basic accuracy
+2025-10-20 16:04:50,688 - utils.logging_utils - INFO -    🟢 ACTIVE mtcnn: Moderate performance, High accuracy
+2025-10-20 16:04:50,688 - utils.logging_utils - INFO -    ✅ ssd: Fast performance, Good accuracy
+2025-10-20 16:04:50,688 - utils.logging_utils - INFO -    ✅ retinaface: Slow performance, Very High accuracy
+2025-10-20 16:04:50,689 - utils.logging_utils - INFO -    ✅ mediapipe: Fast performance, Good accuracy
+2025-10-20 16:04:50,689 - utils.logging_utils - INFO - ❌ Unavailable Detectors:
+2025-10-20 16:04:50,689 - utils.logging_utils - INFO -    ⚪ dlib: requires dlib
+2025-10-20 16:04:50,689 - utils.logging_utils - INFO - 🔧 CONFIGURATION CHANGE GUIDE:
+2025-10-20 16:04:50,689 - utils.logging_utils - INFO -    📝 To change model: Update FACE_RECOGNITION_MODEL in .env file
+2025-10-20 16:04:50,689 - utils.logging_utils - INFO -    👁️ To change detector: Update FACE_DETECTOR_BACKEND in .env file
+2025-10-20 16:04:50,689 - utils.logging_utils - INFO -    📏 To change threshold: Update FACE_DISTANCE_THRESHOLD in .env file
+2025-10-20 16:04:50,689 - utils.logging_utils - INFO -    🔄 To apply changes: Restart backend server
+2025-10-20 16:04:50,689 - utils.logging_utils - INFO - ============================================================
+2025-10-20 16:04:50,689 - main - INFO - Starting Dental Attendance System...
+2025-10-20 16:04:50,689 - main - INFO - 🚀 Initializing advanced features...
+2025-10-20 16:04:50,690 - optimizations.performance_optimizer - WARNING - Redis not available, using in-memory cache: Error 111 connecting to localhost:6379. Connection refused.
+2025-10-20 16:04:50,690 - main - INFO - ✅ Performance optimizations initialized
+2025-10-20 16:04:50,691 - monitoring.analytics - WARNING - Redis monitoring not available: Error 111 connecting to localhost:6379. Connection refused.
+2025-10-20 16:04:50,691 - scalability.load_balancer - WARNING - Redis caching not available: Error 111 connecting to localhost:6379. Connection refused.
+2025-10-20 16:04:50,691 - main - INFO - ✅ Monitoring and analytics initialized
+2025-10-20 16:04:50,692 - scalability.load_balancer - WARNING - Redis not available: Error 111 connecting to localhost:6379. Connection refused.
+2025-10-20 16:04:50,692 - scalability.load_balancer - INFO - Added worker main_worker with capacity 10
+2025-10-20 16:04:50,692 - main - INFO - ✅ Load balancer initialized
+2025-10-20 16:04:50,692 - main - INFO - Static directories created/verified
+2025-10-20 16:04:50,714 - main - INFO - PostgreSQL database initialized
+2025-10-20 16:04:50,714 - dependencies - INFO - Initializing PostgreSQL-compatible face recognizer...
+2025-10-20 16:04:50,714 - face_recognition - INFO - 🔧 TENSORFLOW SETUP
+2025-10-20 16:04:50,714 - face_recognition - INFO -    📦 Version: 2.19.1
+2025-10-20 16:04:50,714 - face_recognition - INFO -    ⚙️ Compute Mode: AUTO
+2025-10-20 16:04:50,714 - face_recognition - INFO -    🚀 GPU Acceleration: ✅ ENABLED (auto-detected)
+2025-10-20 16:04:50,714 - face_recognition - INFO -    🎮 GPU Count: 1
+2025-10-20 16:04:50,714 - face_recognition - INFO -       GPU 0: /physical_device:GPU:0
+2025-10-20 16:04:50,906 - face_recognition - INFO -    ✅ GPU Test: PASSED (6.0)
+2025-10-20 16:04:50,906 - face_recognition - INFO - 🏗️ Building Facenet512 model...
+2025-10-20 16:04:54,203 - face_recognition - INFO - ✅ Facenet512 model built successfully!
+2025-10-20 16:04:54,203 - face_recognition - INFO - 📊 Model Details:
+2025-10-20 16:04:54,204 - face_recognition - INFO -    🧠 Architecture: Facenet512
+2025-10-20 16:04:54,204 - face_recognition - INFO -    👁️ Detector Backend: mtcnn
+2025-10-20 16:04:54,204 - face_recognition - INFO -    📏 Distance Threshold: 16.0 (.env (explicit: 16.0))
+2025-10-20 16:04:54,204 - face_recognition - INFO -    🎯 Adaptive Threshold: ✅ ENABLED (auto-adjusts for groups)
+2025-10-20 16:04:54,204 - face_recognition - INFO -    🎯 Min Confidence: 0.1
+2025-10-20 16:04:54,204 - face_recognition - INFO -    🔧 Enhanced Preprocessing: ✅ Enabled
+2025-10-20 16:04:54,204 - face_recognition - INFO -    ⚙️ Embedding Dimensions: 512d
+2025-10-20 16:04:54,204 - face_recognition - INFO -    🎚️ Model Default Threshold: 20.0
+2025-10-20 16:04:54,204 - face_recognition - INFO -    🔄 Using explicit .env threshold: 16.0 (model default: 20.0)
+2025-10-20 16:04:54,204 - dependencies - INFO - Face recognizer initialized successfully!
+2025-10-20 16:04:54,204 - face_recognition - INFO - Loading all active students from PostgreSQL...
+2025-10-20 16:04:54,233 - face_recognition - INFO - ✅ Enhanced embedding loaded for Zubiya Khan (Class: SY Dental A)
+2025-10-20 16:04:54,234 - face_recognition - INFO - ✅ Enhanced embedding loaded for Maria Marfua Shaikh  (Class: SY Dental A)
+2025-10-20 16:04:54,234 - face_recognition - INFO - ✅ Enhanced embedding loaded for Zinneerah Fatima Ruhail Khan (Class: SY Dental A)
+2025-10-20 16:04:54,234 - face_recognition - INFO - ✅ Enhanced embedding loaded for Asma Mustafa Bukhari  (Class: SY Dental A)
+2025-10-20 16:04:54,234 - face_recognition - INFO - ✅ Enhanced embedding loaded for SHAIKH JUHI SERAJUDDIN  (Class: SY Dental A)
+2025-10-20 16:04:54,235 - face_recognition - INFO - ✅ Enhanced embedding loaded for Varun Uday Mokal (Class: SY Dental A)
+2025-10-20 16:04:54,235 - face_recognition - INFO - ✅ Enhanced embedding loaded for Vedant vijaykumar kulkarni  (Class: SY Dental A)
+2025-10-20 16:04:54,235 - face_recognition - INFO - ✅ Enhanced embedding loaded for Nuh Armar  (Class: SY Dental A)
+2025-10-20 16:04:54,235 - face_recognition - INFO - ✅ Enhanced embedding loaded for Anushka Ajitkumar Khachane  (Class: SY Dental A)
+2025-10-20 16:04:54,236 - face_recognition - INFO - ✅ Enhanced embedding loaded for Sreya Ramesh Yadav (Class: SY Dental A)
+2025-10-20 16:04:54,236 - face_recognition - INFO - ✅ Enhanced embedding loaded for kunal kishor (Class: SY Dental A)
+2025-10-20 16:04:54,236 - face_recognition - INFO - ✅ Enhanced embedding loaded for Ansari mohammed ammar (Class: SY Dental A)
+2025-10-20 16:04:54,236 - face_recognition - INFO - ✅ Enhanced embedding loaded for Dhanashree Ravindra Wagh  (Class: SY Dental A)
+2025-10-20 16:04:54,236 - face_recognition - INFO - ✅ Enhanced embedding loaded for Pradnya Anil Baviskar (Class: SY Dental A)
+2025-10-20 16:04:54,237 - face_recognition - INFO - ✅ Enhanced embedding loaded for Ayesha samani (Class: SY Dental A)
+2025-10-20 16:04:54,237 - face_recognition - INFO - ✅ Enhanced embedding loaded for Nikita Parag Choudhary (Class: SY Dental A)
+2025-10-20 16:04:54,237 - face_recognition - INFO - ✅ Enhanced embedding loaded for Reecha Kumari (Class: SY Dental A)
+2025-10-20 16:04:54,237 - face_recognition - INFO - ✅ Enhanced embedding loaded for Sumaiya Sadik Basha (Class: SY Dental A)
+2025-10-20 16:04:54,237 - face_recognition - INFO - ✅ Enhanced embedding loaded for Hetavi Hitesh Bhanushali  (Class: SY Dental A)
+2025-10-20 16:04:54,238 - face_recognition - INFO - Loaded 19 student embeddings from PostgreSQL.
+2025-10-20 16:04:54,238 - main - INFO - 👥 19 students loaded into face recognizer
+2025-10-20 16:04:54,238 - main - INFO - 🎯 SYSTEM READY STATUS
+2025-10-20 16:04:54,238 - main - INFO -    🧠 Face Recognition: ClassBasedFaceRecognizer
+2025-10-20 16:04:54,238 - main - INFO -    🖥️ Compute: GPU
+2025-10-20 16:04:54,238 - main - INFO -    📊 TensorFlow: 2.19.1
+2025-10-20 16:04:54,238 - main - INFO -    👥 Students Loaded: 19
+2025-10-20 16:04:54,238 - main - INFO -    💾 Storage: LOCAL
+2025-10-20 16:04:54,238 - main - INFO -    🗃️ Database: Connected
+2025-10-20 16:04:54,238 - main - INFO - ✅ System initialized successfully!
+2025-10-20 16:04:54,239 - main - INFO - 🎓 Ready for class-based attendance system!
+2025-10-20 16:04:54,239 - main - INFO - ============================================================
+2025-10-20 16:04:54,239 - main - INFO - 🌐 Server running at: http://localhost:8000
+2025-10-20 16:04:54,239 - main - INFO - 📄 API docs available at: http://localhost:8000/docs
+2025-10-20 16:04:54,239 - main - INFO - ============================================================
+2025-10-20 16:05:22,440 - utils.logging_utils - INFO - 🔵 GET /student/classes - Client: 127.0.0.1
+2025-10-20 16:05:22,453 - utils.logging_utils - INFO - 🔵 GET /attendance/stats - Client: 127.0.0.1
+2025-10-20 16:05:22,454 - utils.logging_utils - INFO - 🔵 GET /student/ - Client: 127.0.0.1
+2025-10-20 16:05:22,515 - utils.logging_utils - INFO - ✅ GET /student/classes - Status: 200 - Time: 0.075s
+2025-10-20 16:05:22,516 - utils.logging_utils - INFO - ✅ GET /attendance/stats - Status: 200 - Time: 0.063s
+2025-10-20 16:05:22,517 - utils.logging_utils - INFO - ✅ GET /student/ - Status: 200 - Time: 0.063s
+2025-10-20 16:05:22,520 - utils.logging_utils - INFO - 🔵 GET /student/ - Client: 127.0.0.1
+2025-10-20 16:05:22,521 - utils.logging_utils - INFO - 🔵 GET /student/classes - Client: 127.0.0.1
+2025-10-20 16:05:22,553 - utils.logging_utils - INFO - ✅ GET /student/ - Status: 200 - Time: 0.033s
+2025-10-20 16:05:22,554 - utils.logging_utils - INFO - ✅ GET /student/classes - Status: 200 - Time: 0.033s
+2025-10-20 16:06:30,476 - utils.logging_utils - INFO - 🔵 GET /subjects/class/3 - Client: 127.0.0.1
+2025-10-20 16:06:30,490 - utils.logging_utils - INFO - ✅ GET /subjects/class/3 - Status: 200 - Time: 0.014s
+2025-10-20 16:07:19,874 - utils.logging_utils - INFO - 🔵 GET /student/classes - Client: 127.0.0.1
+2025-10-20 16:07:19,881 - utils.logging_utils - INFO - 🔇 [request_standard] Suppressed 3 similar log entries
+2025-10-20 16:07:19,882 - utils.logging_utils - INFO - 🔵 GET /static/dataset/SHAIKH_JUHI_SERAJUDDIN__10/face.jpg - Client: 127.0.0.1
+2025-10-20 16:07:19,883 - utils.logging_utils - INFO - ✅ GET /student/classes - Status: 200 - Time: 0.010s
+2025-10-20 16:07:19,886 - utils.logging_utils - INFO - 🔇 [response_standard] Suppressed 3 similar log entries
+2025-10-20 16:07:19,886 - utils.logging_utils - INFO - 🔄 GET /static/dataset/SHAIKH_JUHI_SERAJUDDIN__10/face.jpg - Status: 304 - Time: 0.005s
+2025-10-20 16:07:19,887 - utils.logging_utils - INFO - 🔵 GET /student/classes - Client: 127.0.0.1
+2025-10-20 16:07:19,899 - utils.logging_utils - INFO - ✅ GET /student/classes - Status: 200 - Time: 0.012s
+2025-10-20 16:07:19,906 - utils.logging_utils - INFO - ⚠️ GET /static/dataset/Vivek_navnath_shinde_26/face.jpg - Status: 404 - Time: 0.002s
+2025-10-20 16:07:19,913 - utils.logging_utils - INFO - ⚠️ GET /static/dataset/Samriddhi_Chaubey_37/face.jpg - Status: 404 - Time: 0.002s
+2025-10-20 16:07:19,913 - utils.logging_utils - INFO - ⚠️ GET /static/dataset/Khan_Nazib__38/face.jpg - Status: 404 - Time: 0.002s
+2025-10-20 16:07:19,917 - utils.logging_utils - INFO - ⚠️ GET /static/dataset/Nikita_Parag_Choudhary_39/face.jpg - Status: 404 - Time: 0.002s
+2025-10-20 16:07:24,455 - utils.logging_utils - INFO - 🔇 [request_standard] Suppressed 11 similar log entries
+2025-10-20 16:07:24,456 - utils.logging_utils - INFO - 🔵 GET /static/dataset/Anushka_Ajitkumar_Khachane__48/face.jpg - Client: 127.0.0.1
+2025-10-20 16:07:24,457 - utils.logging_utils - INFO - 🔇 [response_standard] Suppressed 7 similar log entries
+2025-10-20 16:07:24,457 - utils.logging_utils - INFO - 🔄 GET /static/dataset/Reecha_Kumari_88/face.jpg - Status: 304 - Time: 0.001s
+2025-10-20 16:07:26,311 - utils.logging_utils - INFO - 🔇 [request_standard] Suppressed 1 similar log entries
+2025-10-20 16:07:26,311 - utils.logging_utils - INFO - 🔵 GET /static/dataset/Vivek_navnath_shinde_26/face.jpg - Client: 127.0.0.1
+2025-10-20 16:07:26,312 - utils.logging_utils - INFO - ⚠️ GET /static/dataset/Vivek_navnath_shinde_26/face.jpg - Status: 404 - Time: 0.001s
+2025-10-20 16:07:26,319 - utils.logging_utils - INFO - ⚠️ GET /static/dataset/Khan_Nazib__38/face.jpg - Status: 404 - Time: 0.001s
+2025-10-20 16:07:26,323 - utils.logging_utils - INFO - ⚠️ GET /static/dataset/Nikita_Parag_Choudhary_39/face.jpg - Status: 404 - Time: 0.001s
+2025-10-20 16:07:26,749 - utils.logging_utils - INFO - 🔇 [response_standard] Suppressed 1 similar log entries
+2025-10-20 16:07:26,749 - utils.logging_utils - INFO - 🔄 GET /static/dataset/Zubiya_Khan_62/face.jpg - Status: 304 - Time: 0.001s
+2025-10-20 16:07:28,616 - utils.logging_utils - INFO - 🔇 [request_standard] Suppressed 3 similar log entries
+2025-10-20 16:07:28,616 - utils.logging_utils - INFO - 🔵 GET /static/dataset/Vivek_navnath_shinde_26/face.jpg - Client: 127.0.0.1
+2025-10-20 16:07:28,616 - utils.logging_utils - INFO - ⚠️ GET /static/dataset/Vivek_navnath_shinde_26/face.jpg - Status: 404 - Time: 0.001s
+2025-10-20 16:07:28,623 - utils.logging_utils - INFO - ⚠️ GET /static/dataset/Nikita_Parag_Choudhary_39/face.jpg - Status: 404 - Time: 0.001s
+2025-10-20 16:07:28,623 - utils.logging_utils - INFO - ⚠️ GET /static/dataset/Samriddhi_Chaubey_37/face.jpg - Status: 404 - Time: 0.002s
+2025-10-20 16:07:33,375 - utils.logging_utils - INFO - 🔵 GET /student/classes - Client: 127.0.0.1
+2025-10-20 16:07:33,383 - utils.logging_utils - INFO - ✅ GET /student/classes - Status: 200 - Time: 0.009s
+2025-10-20 16:07:33,386 - utils.logging_utils - INFO - 🔵 GET /student/classes - Client: 127.0.0.1
+2025-10-20 16:07:33,392 - utils.logging_utils - INFO - ✅ GET /student/classes - Status: 200 - Time: 0.006s
+2025-10-20 16:08:06,115 - utils.logging_utils - INFO - 🔵 POST /student/ - Client: 127.0.0.1
+2025-10-20 16:08:06,123 - routers.students - INFO - [REGISTRATION] Start registration for Naman Yadav (Roll: 41)
+2025-10-20 16:08:06,130 - utils.storage_utils - INFO - ✅ Saved locally: /home/bitbuggy/Naman_Projects/Facial_Attendance_System/backend/static/dataset/Naman_Yadav_41/1.jpeg
+2025-10-20 16:08:06,131 - routers.students - INFO - [REGISTRATION] Saved photo 1: http://localhost:8000/static/dataset/Naman_Yadav_41/1.jpeg
+2025-10-20 16:08:06,171 - ai.embedding_integration - INFO - ✅ Enhanced embedding system available
+2025-10-20 16:08:06,172 - ai.embedding_integration - INFO - 📝 Using standard embedding generation for Naman Yadav
+2025-10-20 16:08:08,850 - face_recognition - INFO - Embedding saved to /home/bitbuggy/Naman_Projects/Facial_Attendance_System/backend/static/dataset/Naman_Yadav_41/face_embedding.npy
+2025-10-20 16:08:08,850 - ai.embedding_integration - INFO - ✅ Standard embedding saved for Naman Yadav
+2025-10-20 16:08:08,871 - face_recognition - INFO - ✅ Enhanced embedding added to memory for Naman Yadav
+2025-10-20 16:08:08,871 - routers.students - INFO - [REGISTRATION] Registration complete for Naman Yadav in class TYIT B
+2025-10-20 16:08:08,873 - utils.logging_utils - INFO - ✅ POST /student/ - Status: 200 - Time: 2.758s
+2025-10-20 16:08:27,194 - utils.logging_utils - INFO - 🔵 GET /student/classes - Client: 127.0.0.1
+2025-10-20 16:08:27,201 - utils.logging_utils - INFO - ✅ GET /student/classes - Status: 200 - Time: 0.007s
+2025-10-20 16:08:27,204 - utils.logging_utils - INFO - 🔵 GET /student/classes - Client: 127.0.0.1
+2025-10-20 16:08:27,213 - utils.logging_utils - INFO - 🔇 [request_standard] Suppressed 2 similar log entries
+2025-10-20 16:08:27,214 - utils.logging_utils - INFO - 🔵 GET /static/dataset/Vivek_navnath_shinde_26/face.jpg - Client: 127.0.0.1
+2025-10-20 16:08:27,216 - utils.logging_utils - INFO - ✅ GET /student/classes - Status: 200 - Time: 0.012s
+2025-10-20 16:08:27,219 - utils.logging_utils - INFO - ⚠️ GET /static/dataset/Vivek_navnath_shinde_26/face.jpg - Status: 404 - Time: 0.006s
+2025-10-20 16:08:27,220 - utils.logging_utils - INFO - ⚠️ GET /static/dataset/Samriddhi_Chaubey_37/face.jpg - Status: 404 - Time: 0.005s
+2025-10-20 16:08:27,222 - utils.logging_utils - INFO - ⚠️ GET /static/dataset/Khan_Nazib__38/face.jpg - Status: 404 - Time: 0.001s
+2025-10-20 16:08:27,229 - utils.logging_utils - INFO - ⚠️ GET /static/dataset/Nikita_Parag_Choudhary_39/face.jpg - Status: 404 - Time: 0.001s
+2025-10-20 16:08:28,013 - utils.logging_utils - INFO - 🔵 GET /student/classes - Client: 127.0.0.1
+2025-10-20 16:08:28,016 - utils.logging_utils - INFO - 🔵 GET /student/classes - Client: 127.0.0.1
+2025-10-20 16:08:28,024 - utils.logging_utils - INFO - 🔵 GET /student/ - Client: 127.0.0.1
+2025-10-20 16:08:28,025 - utils.logging_utils - INFO - 🔵 GET /student/ - Client: 127.0.0.1
+2025-10-20 16:08:28,055 - utils.logging_utils - INFO - ✅ GET /student/classes - Status: 200 - Time: 0.042s
+2025-10-20 16:08:28,071 - utils.logging_utils - INFO - ✅ GET /student/classes - Status: 200 - Time: 0.055s
+2025-10-20 16:08:28,074 - utils.logging_utils - INFO - ✅ GET /student/ - Status: 200 - Time: 0.050s
+2025-10-20 16:08:28,075 - utils.logging_utils - INFO - ✅ GET /student/ - Status: 200 - Time: 0.050s
+2025-10-20 16:08:28,084 - utils.logging_utils - INFO - ✅ GET /attendance/sessions - Status: 200 - Time: 0.050s
+2025-10-20 16:08:31,386 - utils.logging_utils - INFO - 🔵 GET /student/classes - Client: 127.0.0.1
+2025-10-20 16:08:31,388 - utils.logging_utils - INFO - 🔇 [request_standard] Suppressed 7 similar log entries
+2025-10-20 16:08:31,388 - utils.logging_utils - INFO - 🔵 GET /static/dataset/Vivek_navnath_shinde_26/face.jpg - Client: 127.0.0.1
+2025-10-20 16:08:31,394 - utils.logging_utils - INFO - ⚠️ GET /static/dataset/Vivek_navnath_shinde_26/face.jpg - Status: 404 - Time: 0.007s
+2025-10-20 16:08:31,394 - utils.logging_utils - INFO - ✅ GET /student/classes - Status: 200 - Time: 0.008s
+2025-10-20 16:08:31,395 - utils.logging_utils - INFO - ⚠️ GET /static/dataset/Samriddhi_Chaubey_37/face.jpg - Status: 404 - Time: 0.007s
+2025-10-20 16:08:31,401 - utils.logging_utils - INFO - 🔵 GET /student/classes - Client: 127.0.0.1
+2025-10-20 16:08:31,412 - utils.logging_utils - INFO - ⚠️ GET /static/dataset/Khan_Nazib__38/face.jpg - Status: 404 - Time: 0.010s
+2025-10-20 16:08:31,413 - utils.logging_utils - INFO - ⚠️ GET /static/dataset/Nikita_Parag_Choudhary_39/face.jpg - Status: 404 - Time: 0.010s
+2025-10-20 16:08:31,414 - utils.logging_utils - INFO - ✅ GET /student/classes - Status: 200 - Time: 0.013s
+2025-10-20 16:08:35,777 - utils.logging_utils - INFO - 🔇 [request_standard] Suppressed 3 similar log entries
+2025-10-20 16:08:35,777 - utils.logging_utils - INFO - 🔵 GET /static/dataset/Naman_Yadav_41/face.jpg - Client: 127.0.0.1
+2025-10-20 16:08:35,780 - utils.logging_utils - INFO - 🔇 [response_standard] Suppressed 3 similar log entries
+2025-10-20 16:08:35,780 - utils.logging_utils - INFO - 🔄 GET /static/dataset/Ayesha_samani_58/face.jpg - Status: 304 - Time: 0.001s
+2025-10-20 16:08:38,826 - utils.logging_utils - INFO - 🔇 [request_standard] Suppressed 2 similar log entries
+2025-10-20 16:08:38,826 - utils.logging_utils - INFO - 🔵 GET /static/dataset/Vivek_navnath_shinde_26/face.jpg - Client: 127.0.0.1
+2025-10-20 16:08:38,829 - utils.logging_utils - INFO - ⚠️ GET /static/dataset/Nikita_Parag_Choudhary_39/face.jpg - Status: 404 - Time: 0.002s
+2025-10-20 16:08:38,830 - utils.logging_utils - INFO - ⚠️ GET /static/dataset/Khan_Nazib__38/face.jpg - Status: 404 - Time: 0.003s
+2025-10-20 16:08:38,831 - utils.logging_utils - INFO - ⚠️ GET /static/dataset/Samriddhi_Chaubey_37/face.jpg - Status: 404 - Time: 0.004s
+2025-10-20 16:08:38,831 - utils.logging_utils - INFO - ⚠️ GET /static/dataset/Vivek_navnath_shinde_26/face.jpg - Status: 404 - Time: 0.006s
+2025-10-20 16:08:40,727 - utils.logging_utils - INFO - 🔵 GET /student/classes - Client: 127.0.0.1
+2025-10-20 16:08:40,732 - utils.logging_utils - INFO - ✅ GET /student/classes - Status: 200 - Time: 0.006s
+2025-10-20 16:08:40,735 - utils.logging_utils - INFO - 🔵 GET /student/classes - Client: 127.0.0.1
+2025-10-20 16:08:40,741 - utils.logging_utils - INFO - ✅ GET /student/classes - Status: 200 - Time: 0.006s
+2025-10-20 16:08:45,129 - utils.logging_utils - INFO - 🔵 GET /subjects/class/1 - Client: 127.0.0.1
+2025-10-20 16:08:45,135 - utils.logging_utils - INFO - ✅ GET /subjects/class/1 - Status: 200 - Time: 0.005s
+2025-10-20 16:08:55,588 - utils.logging_utils - INFO - 🔵 POST /attendance/mark - Client: 127.0.0.1
+2025-10-20 16:08:55,593 - routers.attendance - INFO - Loading students for class TYIT B
+2025-10-20 16:08:55,594 - face_recognition - INFO - Loading students for class ID: 1
+2025-10-20 16:08:55,598 - face_recognition - INFO - Loaded 1 students for class TYIT B
+2025-10-20 16:08:55,598 - utils.storage_utils - INFO - ✅ Saved locally: /home/bitbuggy/Naman_Projects/Facial_Attendance_System/backend/static/attendance_photos/naman test_20251020_160855.jpeg
+2025-10-20 16:08:55,599 - routers.attendance - INFO - Attendance photo saved: http://localhost:8000/static/attendance_photos/naman test_20251020_160855.jpeg
+2025-10-20 16:08:55,599 - routers.attendance - INFO - Using local file path: /home/bitbuggy/Naman_Projects/Facial_Attendance_System/backend/static/attendance_photos/naman test_20251020_160855.jpeg
+2025-10-20 16:08:55,599 - routers.attendance - INFO - Processing photo for face recognition: /home/bitbuggy/Naman_Projects/Facial_Attendance_System/backend/static/attendance_photos/naman test_20251020_160855.jpeg
+2025-10-20 16:08:55,602 - face_recognition - ERROR - Enhanced recognition failed: unexpected indent (recognition_integration.py, line 203)
+2025-10-20 16:08:55,602 - face_recognition - INFO - Falling back to standard recognition
+2025-10-20 16:08:55,602 - face_recognition - INFO - Matching against 1 students from class 1
+2025-10-20 16:08:55,602 - face_recognition - INFO - 🔍 Using multi-detector cascade: ['mtcnn', 'retinaface', 'mediapipe', 'opencv']
+2025-10-20 16:08:56,625 - face_recognition - INFO - ✅ Detector 'mtcnn' found 1 faces
+2025-10-20 16:08:56,625 - face_recognition - INFO - ⏱️ Face Detection: 1.02s - Found 1 faces
+2025-10-20 16:08:56,625 - face_recognition - INFO - 📊 Photo type: SINGLE/PAIR - Using strict threshold
+2025-10-20 16:08:57,239 - face_recognition - INFO - ✅ MATCH #1: Naman Yadav (conf: 0.62, dist: 6.5, quality: 0.50, threshold: 16.0)
+2025-10-20 16:08:57,240 - face_recognition - INFO - ⏱️ Face Recognition: 0.61s - Processed 1 faces
+2025-10-20 16:08:57,240 - face_recognition - INFO - ⏱️ Total Processing Time: 1.64s
+2025-10-20 16:08:57,240 - face_recognition - INFO - 📊 RECOGNITION SUMMARY:
+2025-10-20 16:08:57,240 - face_recognition - INFO -    ✅ Identified: 1/1 (100.0%)
+2025-10-20 16:08:57,240 - face_recognition - INFO -    ❌ Unidentified: 0
+2025-10-20 16:08:57,240 - face_recognition - INFO -    🎯 Adaptive Threshold: Enabled
+2025-10-20 16:08:57,240 - face_recognition - INFO -    🔍 Multi-Detector: Enabled
+2025-10-20 16:08:57,240 - face_recognition - INFO -    ⭐ Quality Filter: Enabled
+2025-10-20 16:08:57,240 - face_recognition - INFO -    📝 Students: Naman Yadav
+2025-10-20 16:08:57,240 - face_recognition - INFO -    📈 Avg Confidence: 0.62
+2025-10-20 16:08:57,240 - face_recognition - INFO -    ⭐ Avg Face Quality: 0.50
+2025-10-20 16:08:57,240 - routers.attendance - INFO - ✅ Enhanced recognition completed: unknown
+2025-10-20 16:08:57,266 - routers.attendance - INFO - Class attendance marked for TYIT B: 1/1 present
+2025-10-20 16:08:57,270 - utils.logging_utils - INFO - ✅ POST /attendance/mark - Status: 200 - Time: 1.682s
+2025-10-20 16:08:57,276 - utils.logging_utils - INFO - 🔇 [request_standard] Suppressed 3 similar log entries
+2025-10-20 16:08:57,276 - utils.logging_utils - INFO - 🔵 GET /attendance/sessions - Client: 127.0.0.1
+2025-10-20 16:08:57,293 - utils.logging_utils - INFO - 🔇 [response_standard] Suppressed 2 similar log entries
+2025-10-20 16:08:57,294 - utils.logging_utils - INFO - ✅ GET /attendance/sessions - Status: 200 - Time: 0.017s
+2025-10-20 16:09:02,150 - utils.logging_utils - INFO - 🔵 GET /student/classes - Client: 127.0.0.1
+2025-10-20 16:09:02,157 - utils.logging_utils - INFO - ✅ GET /student/classes - Status: 200 - Time: 0.007s
+2025-10-20 16:09:02,160 - utils.logging_utils - INFO - 🔵 GET /student/classes - Client: 127.0.0.1
+2025-10-20 16:09:02,168 - utils.logging_utils - INFO - ✅ GET /student/classes - Status: 200 - Time: 0.008s
+2025-10-20 16:09:16,756 - utils.logging_utils - INFO - 🔇 [request_standard] Suppressed 1 similar log entries
+2025-10-20 16:09:16,757 - utils.logging_utils - INFO - 🔵 GET /attendance/records - Client: 127.0.0.1
+2025-10-20 16:09:16,771 - utils.logging_utils - INFO - 🔇 [response_standard] Suppressed 1 similar log entries
+2025-10-20 16:09:16,771 - utils.logging_utils - INFO - ✅ GET /attendance/records - Status: 200 - Time: 0.015s
+2025-10-20 16:09:23,273 - utils.logging_utils - INFO - 🔵 GET /student/classes - Client: 127.0.0.1
+2025-10-20 16:09:23,281 - utils.logging_utils - INFO - ✅ GET /student/classes - Status: 200 - Time: 0.008s
+2025-10-20 16:09:23,284 - utils.logging_utils - INFO - 🔵 GET /student/classes - Client: 127.0.0.1
+2025-10-20 16:09:23,291 - utils.logging_utils - INFO - ✅ GET /student/classes - Status: 200 - Time: 0.007s
+2025-10-20 16:09:32,544 - utils.logging_utils - INFO - 🔵 GET /student/classes - Client: 127.0.0.1
+2025-10-20 16:09:32,545 - utils.logging_utils - INFO - 🔵 GET /student/ - Client: 127.0.0.1
+2025-10-20 16:09:32,546 - utils.logging_utils - INFO - 🔵 GET /attendance/sessions - Client: 127.0.0.1
+2025-10-20 16:09:32,576 - utils.logging_utils - INFO - ✅ GET /student/classes - Status: 200 - Time: 0.032s
+2025-10-20 16:09:32,577 - utils.logging_utils - INFO - ✅ GET /student/ - Status: 200 - Time: 0.031s
+2025-10-20 16:09:32,577 - utils.logging_utils - INFO - ✅ GET /attendance/sessions - Status: 200 - Time: 0.031s
+2025-10-20 16:09:32,582 - utils.logging_utils - INFO - 🔵 GET /student/classes - Client: 127.0.0.1
+2025-10-20 16:09:32,583 - utils.logging_utils - INFO - 🔵 GET /student/ - Client: 127.0.0.1
+2025-10-20 16:09:32,607 - utils.logging_utils - INFO - ✅ GET /student/ - Status: 200 - Time: 0.024s
+2025-10-20 16:09:32,607 - utils.logging_utils - INFO - ✅ GET /student/classes - Status: 200 - Time: 0.026s
+2025-10-20 16:09:38,700 - utils.logging_utils - INFO - 🔵 GET /auth/me - Client: 127.0.0.1
+2025-10-20 16:09:38,701 - utils.logging_utils - INFO - ⚠️ GET /auth/me - Status: 401 - Time: 0.002s
+2025-10-20 16:09:38,774 - utils.logging_utils - INFO - ⚠️ GET /auth/me - Status: 401 - Time: 0.001s
+2025-10-20 16:09:38,779 - utils.logging_utils - INFO - ⚠️ GET /auth/me - Status: 401 - Time: 0.002s
+2025-10-20 16:09:38,782 - utils.logging_utils - INFO - 🔵 POST /auth/bootstrap-superadmin - Client: 127.0.0.1
+2025-10-20 16:09:38,784 - utils.logging_utils - INFO - 🔵 POST /auth/bootstrap-superadmin - Client: 127.0.0.1
+2025-10-20 16:09:39,047 - utils.logging_utils - INFO - ⚠️ POST /auth/bootstrap-superadmin - Status: 403 - Time: 0.265s
+2025-10-20 16:09:39,048 - utils.logging_utils - INFO - ⚠️ POST /auth/bootstrap-superadmin - Status: 403 - Time: 0.264s
+2025-10-20 16:09:40,648 - utils.logging_utils - INFO - 🔇 [request_other] Suppressed 2 similar log entries
+2025-10-20 16:09:40,649 - utils.logging_utils - INFO - 🔵 GET /auth/me - Client: 127.0.0.1
+2025-10-20 16:09:40,650 - utils.logging_utils - INFO - ⚠️ GET /auth/me - Status: 401 - Time: 0.001s
+2025-10-20 16:09:40,653 - utils.logging_utils - INFO - 🔵 POST /auth/bootstrap-superadmin - Client: 127.0.0.1
+2025-10-20 16:09:40,654 - utils.logging_utils - INFO - 🔇 [debug_request_body] Suppressed 1 similar log entries
+2025-10-20 16:09:40,654 - utils.logging_utils - INFO - ⚠️ GET /auth/me - Status: 401 - Time: 0.003s
+2025-10-20 16:09:40,659 - utils.logging_utils - INFO - 🔵 POST /auth/bootstrap-superadmin - Client: 127.0.0.1
+2025-10-20 16:09:40,660 - utils.logging_utils - INFO - ⚠️ POST /auth/bootstrap-superadmin - Status: 403 - Time: 0.007s
+2025-10-20 16:09:40,666 - utils.logging_utils - INFO - ⚠️ POST /auth/bootstrap-superadmin - Status: 403 - Time: 0.007s

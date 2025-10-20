@@ -563,34 +563,12 @@ class ClassBasedFaceRecognizer:
 
             shutil.copy(image_path, final_photo_path)
 
-            # Robust path: avoid DeepFace detectors entirely to bypass KerasTensor issues
-            # Use OpenCV Haar cascade to detect face and crop; fallback to full image
-            detected_face = None
-            try:
-                image_bgr = cv2.imread(final_photo_path)
-                if image_bgr is not None:
-                    gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
-                    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-                    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(60, 60))
-                    if len(faces) > 0:
-                        # Largest face
-                        x, y, w, h = max(faces, key=lambda r: r[2] * r[3])
-                        crop = image_bgr[y:y+h, x:x+w]
-                        detected_face_path = final_photo_path + ".crop.jpg"
-                        cv2.imwrite(detected_face_path, crop)
-                        detected_face = detected_face_path
-                        logger.info("Face extracted using OpenCV Haar cascade")
-            except Exception as e_cv:
-                logger.debug(f"OpenCV detection failed: {e_cv}")
-            if detected_face is None:
-                detected_face = final_photo_path
-            
-            # Compute embedding using a safe detector (mtcnn) to avoid RetinaFace path
+            # Standard embedding generation using configured detector backend
             embedding_obj = DeepFace.represent(
-                img_path=detected_face,
+                img_path=final_photo_path,
                 model_name=RECOGNITION_MODEL,
-                detector_backend='mtcnn',
-                enforce_detection=False
+                detector_backend=DETECTOR_BACKEND,
+                enforce_detection=True
             )
             
             embedding = embedding_obj[0]["embedding"]  # type: ignore

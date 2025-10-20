@@ -95,39 +95,14 @@ class EnhancedEmbeddingGenerator:
         for image_path in unique_paths:
             for model_name, config in self.models.items():
                 try:
-                    # Robust detection: avoid RetinaFace / KerasTensor path
-                    # 1) Try to extract faces with safer detectors, 2) embed with 'skip'
-                    face_img = None
-                    for det in ['mtcnn', 'opencv', 'mediapipe']:
-                        try:
-                            faces = DeepFace.extract_faces(
-                                img_path=image_path,
-                                detector_backend=det,
-                                enforce_detection=False
-                            )
-                            if faces:
-                                # largest face
-                                faces_sorted = sorted(
-                                    faces,
-                                    key=lambda f: (f.get('facial_area', {}).get('w', 0) * f.get('facial_area', {}).get('h', 0)),
-                                    reverse=True
-                                )
-                                face_img = faces_sorted[0]['face']
-                                break
-                        except Exception:
-                            continue
-                    if face_img is None:
-                        face_img = image_path  # fallback to full image
-
-                    emb_obj = DeepFace.represent(
-                        img_path=face_img,
+                    embedding = DeepFace.represent(
+                        img_path=image_path,
                         model_name=model_name,
                         detector_backend='mtcnn',
-                        enforce_detection=False,
+                        enforce_detection=True,
                         align=True,
                         normalization='Facenet2018'
-                    )
-                    embedding = emb_obj[0]["embedding"]
+                    )[0]["embedding"]
                     
                     ensemble_embeddings[model_name].append(np.array(embedding))
                     logger.debug(f"✅ {model_name} embedding generated for {image_path}")
