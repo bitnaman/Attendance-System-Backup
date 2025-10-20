@@ -8,3 +8,10 @@ train images on 3d density based vectors
 
 
 modularise the database and api from file for future use
+
+
+multiple photos in section for large classes
+
+kill -9 $(lsof -t -i:3000)
+ps aux | grep python3
+kill pid

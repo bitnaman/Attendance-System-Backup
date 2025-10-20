@@ -11,7 +11,13 @@ const PHOTO_BASE = process.env.REACT_APP_PHOTO_BASE || API_BASE;
 
 async function apiRequest(url, options = {}) {
   try {
-    const res = await fetch(`${API_BASE}${url}`, options);
+    const token = localStorage.getItem('auth_token');
+    const mergedHeaders = {
+      'Content-Type': 'application/json',
+      ...(options.headers || {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+    const res = await fetch(`${API_BASE}${url}`, { ...options, headers: mergedHeaders });
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({ detail: 'An unknown error occurred' }));
       throw new Error(errorData.detail);
@@ -53,3 +59,60 @@ export const fetchAttendanceData = async () => {
 
 export const fetchSessionRecords = (sessionId) =>
   apiRequest(`/attendance/records?session_id=${encodeURIComponent(sessionId)}`);
+
+// New helpers for exports UI
+export const fetchExportClasses = () => apiRequest('/attendance/classes/available');
+export const fetchStudentsFiltered = (classId, division, page = 1, pageSize = 100) => {
+  const params = new URLSearchParams();
+  if (classId) params.set('class_id', classId);
+  if (division) params.set('division', division);
+  params.set('page', String(page));
+  params.set('page_size', String(pageSize));
+  return apiRequest(`/student/filter?${params.toString()}`);
+};
+export const downloadStudentCsv = async (studentId, dateFrom, dateTo) => {
+  const params = new URLSearchParams();
+  params.set('student_id', studentId);
+  if (dateFrom) params.set('date_from', dateFrom);
+  if (dateTo) params.set('date_to', dateTo);
+  params.set('format', 'csv');
+  const url = `${API_BASE}/attendance/export/student?${params.toString()}`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${localStorage.getItem('auth_token') || ''}` } });
+  if (!res.ok) throw new Error('Failed to download CSV');
+  const blob = await res.blob();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `student_${studentId}_attendance.csv`;
+  a.click();
+};
+
+export const downloadStudentPdf = async (studentId, dateFrom, dateTo) => {
+  const params = new URLSearchParams();
+  params.set('student_id', studentId);
+  if (dateFrom) params.set('date_from', dateFrom);
+  if (dateTo) params.set('date_to', dateTo);
+  params.set('format', 'pdf');
+  const url = `${API_BASE}/attendance/export/student?${params.toString()}`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${localStorage.getItem('auth_token') || ''}` } });
+  if (!res.ok) throw new Error('Failed to download PDF');
+  const blob = await res.blob();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `student_${studentId}_attendance.pdf`;
+  a.click();
+};
+export const downloadClassCsv = async (classId, division, dateFrom, dateTo) => {
+  const params = new URLSearchParams();
+  params.set('class_id', classId);
+  if (division) params.set('division', division);
+  if (dateFrom) params.set('date_from', dateFrom);
+  if (dateTo) params.set('date_to', dateTo);
+  const url = `${API_BASE}/attendance/export/class-csv?${params.toString()}`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${localStorage.getItem('auth_token') || ''}` } });
+  if (!res.ok) throw new Error('Failed to download CSV');
+  const blob = await res.blob();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `class_${classId}_attendance.csv`;
+  a.click();
+};

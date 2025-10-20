@@ -39,6 +39,9 @@ from routers.students import router as students_router
 from routers.attendance import router as attendance_router
 from routers.config import router as config_router
 from routers.monitoring import router as monitoring_router
+from routers.auth import router as auth_router
+from routers.medical import router as medical_router
+from routers.subjects import router as subjects_router
 from config import *
 
 # Setup enhanced logging with configurable throttling
@@ -152,8 +155,11 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 # API Routers
 app.include_router(students_router)
 app.include_router(attendance_router)
+app.include_router(subjects_router)
 app.include_router(config_router)
 app.include_router(monitoring_router)
+app.include_router(auth_router)
+app.include_router(medical_router)
 
 # Health check endpoint
 @app.get("/health")

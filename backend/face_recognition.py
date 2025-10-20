@@ -3,6 +3,11 @@ PostgreSQL-Compatible Face Recognition with Class-Based Filtering.
 Enhanced for class-specific attendance marking with configurable logging.
 """
 import os
+
+# Ensure Keras uses TensorFlow backend compatible with TF 2.19
+# These MUST be set before any TensorFlow / Keras / DeepFace imports
+os.environ.setdefault("KERAS_BACKEND", "tensorflow")
+os.environ.setdefault("TF_USE_LEGACY_KERAS", "1")
 import cv2
 import numpy as np
 import logging
@@ -558,11 +563,34 @@ class ClassBasedFaceRecognizer:
 
             shutil.copy(image_path, final_photo_path)
 
+            # Robust path: avoid DeepFace detectors entirely to bypass KerasTensor issues
+            # Use OpenCV Haar cascade to detect face and crop; fallback to full image
+            detected_face = None
+            try:
+                image_bgr = cv2.imread(final_photo_path)
+                if image_bgr is not None:
+                    gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
+                    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+                    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(60, 60))
+                    if len(faces) > 0:
+                        # Largest face
+                        x, y, w, h = max(faces, key=lambda r: r[2] * r[3])
+                        crop = image_bgr[y:y+h, x:x+w]
+                        detected_face_path = final_photo_path + ".crop.jpg"
+                        cv2.imwrite(detected_face_path, crop)
+                        detected_face = detected_face_path
+                        logger.info("Face extracted using OpenCV Haar cascade")
+            except Exception as e_cv:
+                logger.debug(f"OpenCV detection failed: {e_cv}")
+            if detected_face is None:
+                detected_face = final_photo_path
+            
+            # Compute embedding using a safe detector (mtcnn) to avoid RetinaFace path
             embedding_obj = DeepFace.represent(
-                img_path=final_photo_path,
+                img_path=detected_face,
                 model_name=RECOGNITION_MODEL,
-                detector_backend=DETECTOR_BACKEND,
-                enforce_detection=True
+                detector_backend='mtcnn',
+                enforce_detection=False
             )
             
             embedding = embedding_obj[0]["embedding"]  # type: ignore
@@ -712,6 +740,137 @@ class ClassBasedFaceRecognizer:
         except Exception as e:
             logger.error(f"Failed multi-image embedding: {e}")
             raise ValueError(f"Could not process provided images. {e}") from e
+
+    def process_class_photo_enhanced(self, image_path: str, class_id: Optional[int] = None) -> Dict[str, Any]:
+        """
+        Enhanced classroom photo processing with advanced recognition system
+        """
+        try:
+            from ai.recognition_integration import recognize_faces_enhanced
+            
+            # Extract faces using existing logic
+            detected_faces = self._extract_faces_enhanced(image_path)
+            
+            if not detected_faces:
+                return {
+                    "total_faces_detected": 0,
+                    "identified_students": [],
+                    "unidentified_faces_count": 0,
+                    "class_id": class_id,
+                    "method": "enhanced"
+                }
+            
+            # Get student IDs for matching
+            if class_id and self.current_class_students:
+                student_ids = [s['id'] for s in self.current_class_students]
+                class_student_ids = student_ids
+            else:
+                student_ids = [s['id'] for s in self.known_students_db]
+                class_student_ids = None
+            
+            # Extract embeddings from detected faces
+            face_embeddings = []
+            for face_obj in detected_faces:
+                try:
+                    embedding_obj = DeepFace.represent(
+                        img_path=face_obj['face'],
+                        model_name=RECOGNITION_MODEL,
+                        enforce_detection=False,
+                        detector_backend='skip'
+                    )
+                    face_embeddings.append(np.array(embedding_obj[0]["embedding"]))
+                except Exception as e:
+                    logger.warning(f"Failed to extract embedding: {e}")
+                    continue
+            
+            if not face_embeddings:
+                return {
+                    "total_faces_detected": len(detected_faces),
+                    "identified_students": [],
+                    "unidentified_faces_count": len(detected_faces),
+                    "class_id": class_id,
+                    "method": "enhanced"
+                }
+            
+            # Use enhanced recognition
+            matches = recognize_faces_enhanced(
+                face_embeddings=face_embeddings,
+                student_ids=student_ids,
+                class_student_ids=class_student_ids,
+                group_size=len(detected_faces),
+                use_advanced=True
+            )
+            
+            # Convert matches to expected format
+            identified_students = []
+            for match in matches:
+                # Find student info
+                student_info = None
+                for student in (self.current_class_students if class_id else self.known_students_db):
+                    if student['id'] == match['student_id']:
+                        student_info = student
+                        break
+                
+                if student_info:
+                    identified_students.append({
+                        'student_id': match['student_id'],
+                        'id': match['student_id'],  # Keep both for compatibility
+                        'name': student_info['name'],
+                        'roll_no': student_info['roll_no'],
+                        'class_id': student_info.get('class_id'),
+                        'class_name': student_info.get('class_name'),
+                        'class_section': student_info.get('class_section'),
+                        'confidence': match['confidence'],
+                        'distance': match['distance'],
+                        'method': match['method']
+                    })
+            
+            return {
+                "total_faces_detected": len(detected_faces),
+                "identified_students": identified_students,
+                "unidentified_faces_count": len(detected_faces) - len(identified_students),
+                "class_id": class_id,
+                "method": "enhanced"
+            }
+            
+        except Exception as e:
+            logger.error(f"Enhanced recognition failed: {e}")
+            logger.info("Falling back to standard recognition")
+            return self.process_class_photo(image_path, class_id)
+    
+    def _extract_faces_enhanced(self, image_path: str) -> List[Dict]:
+        """Extract faces with enhanced detection"""
+        detected_faces = []
+        
+        # Multi-detector cascade
+        if ENABLE_MULTI_DETECTOR:
+            for detector in DETECTOR_CASCADE:
+                try:
+                    faces = DeepFace.extract_faces(
+                        img_path=image_path,
+                        detector_backend=detector,
+                        enforce_detection=False
+                    )
+                    
+                    if faces:
+                        detected_faces = faces
+                        logger.info(f"✅ Detector '{detector}' found {len(faces)} faces")
+                        break
+                except Exception as e:
+                    logger.debug(f"❌ Detector '{detector}' failed: {e}")
+                    continue
+        else:
+            # Single detector
+            try:
+                detected_faces = DeepFace.extract_faces(
+                    img_path=image_path,
+                    detector_backend=DETECTOR_BACKEND,
+                    enforce_detection=False
+                )
+            except Exception as e:
+                logger.error(f"Face extraction failed: {e}")
+        
+        return detected_faces
 
     def process_class_photo(self, image_path: str, class_id: Optional[int] = None) -> Dict[str, Any]:
         """

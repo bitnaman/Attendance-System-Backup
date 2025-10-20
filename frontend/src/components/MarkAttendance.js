@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import UploadPanel from '../UploadPanel';
+import BatchAttendance from './BatchAttendance';
 
-export default function MarkAttendance({ attendanceForm, setAttendanceForm, onSubmit, processing, onQuickAttendance }) {
-  const [showQuick, setShowQuick] = useState(false);
+export default function MarkAttendance({ attendanceForm, setAttendanceForm, onSubmit, processing, showMessage }) {
+  const [showBatch, setShowBatch] = useState(false);
   const [classes, setClasses] = useState([]);
+  const [subjects, setSubjects] = useState([]);
   const [loadingClasses, setLoadingClasses] = useState(true);
+  const [loadingSubjects, setLoadingSubjects] = useState(false);
   const [previewImage, setPreviewImage] = useState(null);
 
   const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:8000';
@@ -13,6 +15,15 @@ export default function MarkAttendance({ attendanceForm, setAttendanceForm, onSu
   useEffect(() => {
     loadClasses();
   }, []);
+
+  // Load subjects when class is selected
+  useEffect(() => {
+    if (attendanceForm.class_id) {
+      loadSubjects(attendanceForm.class_id);
+    } else {
+      setSubjects([]);
+    }
+  }, [attendanceForm.class_id]);
 
   const loadClasses = async () => {
     try {
@@ -30,6 +41,21 @@ export default function MarkAttendance({ attendanceForm, setAttendanceForm, onSu
       console.error('Failed to load classes:', error);
     } finally {
       setLoadingClasses(false);
+    }
+  };
+
+  const loadSubjects = async (classId) => {
+    try {
+      setLoadingSubjects(true);
+      const response = await fetch(`${API_BASE}/subjects/class/${classId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setSubjects(data);
+      }
+    } catch (error) {
+      console.error('Failed to load subjects:', error);
+    } finally {
+      setLoadingSubjects(false);
     }
   };
 
@@ -60,8 +86,59 @@ export default function MarkAttendance({ attendanceForm, setAttendanceForm, onSu
         </div>
       </div>
 
-      <div className="modern-form">
-        <form onSubmit={onSubmit} encType="multipart/form-data">
+      {/* Attendance Mode Toggle */}
+      <div style={{ 
+        marginBottom: 24, 
+        padding: 16, 
+        backgroundColor: '#f8f9fa', 
+        borderRadius: 8,
+        border: '1px solid #e9ecef'
+      }}>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <span style={{ fontWeight: 'bold', color: '#495057' }}>Attendance Mode:</span>
+          <button 
+            onClick={() => setShowBatch(false)}
+            style={{ 
+              padding: '8px 16px', 
+              border: '1px solid #ced4da', 
+              backgroundColor: !showBatch ? '#007bff' : 'white', 
+              color: !showBatch ? 'white' : '#495057', 
+              borderRadius: 4,
+              cursor: 'pointer',
+              fontWeight: 'bold'
+            }}
+          >
+            📸 Single Photo
+          </button>
+          <button 
+            onClick={() => setShowBatch(true)}
+            style={{ 
+              padding: '8px 16px', 
+              border: '1px solid #ced4da', 
+              backgroundColor: showBatch ? '#28a745' : 'white', 
+              color: showBatch ? 'white' : '#495057', 
+              borderRadius: 4,
+              cursor: 'pointer',
+              fontWeight: 'bold'
+            }}
+          >
+            📷 Batch Photos (Large Classes)
+          </button>
+        </div>
+        <div style={{ marginTop: 8, fontSize: 14, color: '#6c757d' }}>
+          {showBatch 
+            ? 'Upload 3-5 photos for classes with 100+ students arranged in rows'
+            : 'Upload a single photo for regular class attendance'
+          }
+        </div>
+      </div>
+
+      {/* Conditional Content Based on Mode */}
+      {showBatch ? (
+        <BatchAttendance showMessage={showMessage} />
+      ) : (
+        <div className="modern-form">
+          <form onSubmit={onSubmit} encType="multipart/form-data">
           <div className="form-row">
             <div className="form-group">
               <label>Session Name *</label>
@@ -84,7 +161,9 @@ export default function MarkAttendance({ attendanceForm, setAttendanceForm, onSu
               ) : (
                 <select 
                   value={attendanceForm.class_id || ''} 
-                  onChange={(e) => setAttendanceForm({ ...attendanceForm, class_id: e.target.value })} 
+                  onChange={(e) => {
+                    setAttendanceForm({ ...attendanceForm, class_id: e.target.value, subject_id: '' });
+                  }} 
                   required
                 >
                   <option value="">Choose class for attendance</option>
@@ -96,6 +175,29 @@ export default function MarkAttendance({ attendanceForm, setAttendanceForm, onSu
                 </select>
               )}
               <small>Select the class for which you want to mark attendance</small>
+            </div>
+
+            <div className="form-group">
+              <label>Select Subject (Optional)</label>
+              {loadingSubjects ? (
+                <select disabled>
+                  <option>Loading subjects...</option>
+                </select>
+              ) : (
+                <select 
+                  value={attendanceForm.subject_id || ''} 
+                  onChange={(e) => setAttendanceForm({ ...attendanceForm, subject_id: e.target.value })}
+                  disabled={!attendanceForm.class_id}
+                >
+                  <option value="">General Attendance (No specific subject)</option>
+                  {subjects.map(subject => (
+                    <option key={subject.id} value={subject.id}>
+                      {subject.name} {subject.code && `(${subject.code})`}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <small>Select a specific subject for subject-wise attendance</small>
             </div>
           </div>
           
@@ -150,25 +252,8 @@ export default function MarkAttendance({ attendanceForm, setAttendanceForm, onSu
             </button>
           </div>
         </form>
-
-        {/* Quick Upload Alternative */}
-        <div className="quick-upload-section">
-          <button 
-            type="button" 
-            onClick={() => setShowQuick(!showQuick)} 
-            className="modern-btn secondary"
-          >
-            <span className="btn-icon">⚡</span>
-            {showQuick ? 'Hide Quick Upload' : 'Quick Upload Alternative'}
-          </button>
-          
-          {showQuick && (
-            <div className="quick-upload-panel">
-              <UploadPanel onUpload={onQuickAttendance} />
-            </div>
-          )}
-        </div>
       </div>
+      )}
     </div>
   );
 }

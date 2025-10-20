@@ -36,6 +36,23 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 
+class User(Base):
+    """User accounts for authentication and authorization"""
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(150), unique=True, nullable=False, index=True)
+    password_hash = Column(String(255), nullable=False)
+    role = Column(String(50), nullable=False, index=True)  # "superadmin" | "teacher"
+    is_active = Column(Boolean, default=True)
+    is_primary_admin = Column(Boolean, default=False)  # Protected superadmin (cannot be modified by others)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<User(id={self.id}, username='{self.username}', role='{self.role}', is_active={self.is_active}, is_primary={self.is_primary_admin})>"
+
+
 class Class(Base):
     """Class/Section model for organizing students"""
     __tablename__ = "classes"
@@ -50,10 +67,36 @@ class Class(Base):
 
     # Relationships
     students = relationship("Student", back_populates="class_obj")
+    subjects = relationship("Subject", back_populates="class_obj", cascade="all, delete-orphan")
     attendance_sessions = relationship("AttendanceSession", back_populates="class_obj")
 
     def __repr__(self):
         return f"<Class(id={self.id}, name='{self.name}', section='{self.section}')>"
+
+
+class Subject(Base):
+    """Subject model for organizing subjects per class"""
+    __tablename__ = "subjects"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(200), nullable=False, index=True)  # e.g., "Mathematics", "Physics"
+    code = Column(String(50), nullable=True, index=True)  # e.g., "MATH101", "PHY201"
+    description = Column(Text, nullable=True)
+    credits = Column(Integer, nullable=True)  # Credit hours
+    
+    # Class assignment - subjects belong to specific classes
+    class_id = Column(Integer, ForeignKey("classes.id"), nullable=False, index=True)
+    
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    class_obj = relationship("Class", back_populates="subjects")
+    attendance_sessions = relationship("AttendanceSession", back_populates="subject")
+
+    def __repr__(self):
+        return f"<Subject(id={self.id}, name='{self.name}', code='{self.code}', class_id={self.class_id})>"
 
 
 class Student(Base):
@@ -68,8 +111,20 @@ class Student(Base):
     seat_no = Column(String(50), unique=True, nullable=False, index=True)
     email = Column(String(255), nullable=True)
     phone = Column(String(20), nullable=True)
+    
+    # Additional student information
+    gender = Column(String(20), nullable=True)  # Male, Female, Other
+    blood_group = Column(String(10), nullable=True)  # A+, A-, B+, B-, AB+, AB-, O+, O-
+    parents_mobile = Column(String(20), nullable=True)  # Parent/Guardian contact
+    
     photo_path = Column(String(500), nullable=True)
     face_encoding_path = Column(String(500), nullable=True)
+    
+    # Enhanced embedding fields
+    embedding_variants_path = Column(String(500), nullable=True)
+    embedding_metadata_path = Column(String(500), nullable=True)
+    embedding_confidence = Column(Float, default=0.8)
+    adaptive_threshold = Column(Float, default=0.6)
     
     # Class assignment
     class_id = Column(Integer, ForeignKey("classes.id"), nullable=False, index=True)
@@ -88,7 +143,7 @@ class Student(Base):
 
 
 class AttendanceSession(Base):
-    """Attendance session model with class filtering"""
+    """Attendance session model with class and subject filtering"""
     __tablename__ = "attendance_sessions"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -98,13 +153,19 @@ class AttendanceSession(Base):
     # Class-specific session
     class_id = Column(Integer, ForeignKey("classes.id"), nullable=False, index=True)
     
+    # Subject-specific session (optional - for subject-wise attendance)
+    subject_id = Column(Integer, ForeignKey("subjects.id"), nullable=True, index=True)
+    
     total_detected = Column(Integer, default=0)
     total_present = Column(Integer, default=0)
     confidence_avg = Column(Float, default=0.0)
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    # Session type: normal or extra
+    session_type = Column(String(20), default="normal", index=True)
 
     # Relationships
     class_obj = relationship("Class", back_populates="attendance_sessions")
+    subject = relationship("Subject", back_populates="attendance_sessions")
     attendance_records = relationship("AttendanceRecord", back_populates="session")
 
     def __repr__(self):
@@ -121,6 +182,10 @@ class AttendanceRecord(Base):
     is_present = Column(Boolean, default=False)
     confidence = Column(Float, default=0.0)
     detection_details = Column(Text, nullable=True)
+    # Extended status and metadata
+    status = Column(String(20), default="auto")  # auto|present|absent|medical|authorized
+    note = Column(Text, nullable=True)
+    attachment_path = Column(String(500), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships
@@ -130,6 +195,23 @@ class AttendanceRecord(Base):
     def __repr__(self):
         return f"<AttendanceRecord(id={self.id}, student_id={self.student_id}, session_id={self.session_id}, present={self.is_present})>"
 
+
+class LeaveRecord(Base):
+    """Explicit leave/medical records with optional document attachment"""
+    __tablename__ = "leave_records"
+
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, ForeignKey("students.id"), nullable=False, index=True)
+    leave_date = Column(DateTime, default=datetime.utcnow, index=True)
+    leave_type = Column(String(20), nullable=False)  # medical | authorized
+    note = Column(Text, nullable=True)
+    document_path = Column(String(500), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    student = relationship("Student")
+
+    def __repr__(self):
+        return f"<LeaveRecord(id={self.id}, student_id={self.student_id}, type={self.leave_type})>"
 
 def drop_all_tables() -> None:
     """Drop all existing tables - FRESH START"""

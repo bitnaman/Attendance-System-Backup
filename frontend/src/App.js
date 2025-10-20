@@ -3,13 +3,20 @@ import './App.css';
 import MarkAttendance from './components/MarkAttendance';
 import ViewAttendance from './components/ViewAttendance';
 import ManageStudents from './components/ManageStudents';
-import RegisterStudent from './components/RegisterStudent';
 import BackupManager from './components/BackupManager';
+import AdminUsers from './components/AdminUsers';
+import Login from './Login';
+import { AuthProvider, RequireAuth, useAuth } from './AuthContext';
+import ExportPanel from './components/ExportPanel';
+import MedicalLeave from './components/MedicalLeave';
+import BatchAttendance from './components/BatchAttendance';
+import UserProfile from './components/UserProfile';
+import BootstrapAdmin from './components/BootstrapAdmin';
 import { fetchStudents, fetchAttendanceData, fetchSessionRecords } from './api';
 
 const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:8000';
 
-function App() {
+function AppShell() {
   // UI
   const [activeTab, setActiveTab] = useState('attendance');
   const [message, setMessage] = useState(null);
@@ -25,15 +32,10 @@ function App() {
   const [students, setStudents] = useState([]);
   const [editingStudent, setEditingStudent] = useState(null);
   const [editForm, setEditForm] = useState({
-    name: '', age: '', roll_no: '', prn: '', seat_no: '', email: '', phone: '', photo: null,
+    name: '', age: '', roll_no: '', prn: '', seat_no: '', email: '', phone: '', class_id: '', photo: null,
   });
   const [updating, setUpdating] = useState(false);
 
-  // Register student
-  const [studentForm, setStudentForm] = useState({
-    name: '', age: '', roll_no: '', prn: '', seat_no: '', email: '', phone: '', photos: [], class_id: ''
-  });
-  const [registering, setRegistering] = useState(false);
 
   // Attendance
   const [attendanceForm, setAttendanceForm] = useState({ sessionName: '', classPhoto: null, class_id: '' });
@@ -110,6 +112,9 @@ function App() {
       const fd = new FormData();
       fd.append('session_name', attendanceForm.sessionName);
       fd.append('class_id', String(attendanceForm.class_id));
+      if (attendanceForm.subject_id) {
+        fd.append('subject_id', String(attendanceForm.subject_id));
+      }
       fd.append('photo', attendanceForm.classPhoto);
       
       const res = await fetch(`${API_BASE}/attendance/mark`, { method: 'POST', body: fd });
@@ -153,13 +158,14 @@ function App() {
       seat_no: student.seat_no || '',
       email: student.email || '',
       phone: student.phone || '',
+      class_id: student.class_id || '',
       photo: null,
     });
   };
 
   const cancelEdit = () => {
     setEditingStudent(null);
-    setEditForm({ name: '', age: '', roll_no: '', prn: '', seat_no: '', email: '', phone: '', photo: null });
+    setEditForm({ name: '', age: '', roll_no: '', prn: '', seat_no: '', email: '', phone: '', class_id: '', photo: null });
   };
 
   const handleUpdateStudent = async (e) => {
@@ -167,6 +173,7 @@ function App() {
     if (!editingStudent) return;
     setUpdating(true);
     try {
+      const token = localStorage.getItem('auth_token');
       const fd = new FormData();
       Object.entries({
         name: editForm.name,
@@ -176,9 +183,16 @@ function App() {
         seat_no: editForm.seat_no,
         email: editForm.email,
         phone: editForm.phone,
+        class_id: editForm.class_id,
       }).forEach(([k, v]) => v !== undefined && v !== null && v !== '' && fd.append(k, v));
-      if (editForm.photo) fd.append('image', editForm.photo);
-      const res = await fetch(`${API_BASE}/student/${editingStudent}`, { method: 'PUT', body: fd });
+      if (editForm.photo) fd.append('photo', editForm.photo);  // Fixed: backend expects 'photo' not 'image'
+      const res = await fetch(`${API_BASE}/student/${editingStudent}`, { 
+        method: 'PUT', 
+        body: fd,
+        headers: {
+          'Authorization': `Bearer ${token || ''}`
+        }
+      });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.detail || 'Failed to update student');
@@ -196,7 +210,13 @@ function App() {
 
   const handleDeleteStudent = async (studentId, name) => {
     try {
-      const res = await fetch(`${API_BASE}/student/${studentId}`, { method: 'DELETE' });
+      const token = localStorage.getItem('auth_token');
+      const res = await fetch(`${API_BASE}/student/${studentId}`, { 
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token || ''}`
+        }
+      });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.detail || 'Failed to delete');
@@ -211,7 +231,13 @@ function App() {
 
   const handleToggleStatus = async (studentId, isActive) => {
     try {
-      const res = await fetch(`${API_BASE}/student/${studentId}/toggle-status`, { method: 'POST' });
+      const token = localStorage.getItem('auth_token');
+      const res = await fetch(`${API_BASE}/student/${studentId}/toggle-status`, { 
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token || ''}`
+        }
+      });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.detail || 'Failed to toggle');
@@ -223,46 +249,40 @@ function App() {
     }
   };
 
-  // Register new student (multi-photo)
-  const handleStudentSubmit = async (e) => {
-    e.preventDefault();
-    if (!studentForm.name || !studentForm.age || !studentForm.roll_no || !studentForm.prn || !studentForm.seat_no || !studentForm.class_id || (studentForm.photos || []).length === 0) {
-      showMessage('Please fill all required fields including class selection', 'error');
-      return;
-    }
-    setRegistering(true);
-    const fd = new FormData();
-    fd.append('name', studentForm.name);
-    fd.append('age', String(studentForm.age));
-    fd.append('roll_no', studentForm.roll_no);
-    fd.append('prn', studentForm.prn);
-    fd.append('seat_no', studentForm.seat_no);
-    fd.append('class_id', String(studentForm.class_id));
-    if (studentForm.email) fd.append('email', studentForm.email);
-    if (studentForm.phone) fd.append('phone', studentForm.phone);
-    const first = studentForm.photos?.[0];
-    if (first) fd.append('image', first);
-    (studentForm.photos || []).forEach((f) => fd.append('images', f));
+  const handleUpgradeEmbeddings = async (studentId) => {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 120000);
-      const res = await fetch(`${API_BASE}/student/`, { method: 'POST', body: fd, signal: controller.signal });
-      clearTimeout(timeoutId);
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || 'Registration failed');
+      const token = localStorage.getItem('auth_token');
+      const res = await fetch(`${API_BASE}/student/${studentId}/upgrade-embeddings`, { 
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token || ''}`
+        }
+      });
+      if (res.ok) {
+        showMessage('Student embeddings upgraded to enhanced system!', 'success');
+        await loadStudents();
+      } else {
+        const error = await res.json();
+        // Handle validation errors that might be objects
+        let errorMessage = 'Error upgrading embeddings';
+        if (error.detail) {
+          if (typeof error.detail === 'string') {
+            errorMessage = error.detail;
+          } else if (Array.isArray(error.detail)) {
+            errorMessage = error.detail.map(err => err.msg || err.message || 'Validation error').join(', ');
+          } else if (typeof error.detail === 'object') {
+            errorMessage = error.detail.msg || error.detail.message || 'Validation error';
+          }
+        }
+        showMessage(errorMessage, 'error');
       }
-      await res.json();
-      showMessage('Student registered successfully!', 'success');
-      setStudentForm({ name: '', age: '', roll_no: '', prn: '', seat_no: '', email: '', phone: '', photos: [], class_id: '' });
-      await loadStudents();
     } catch (e) {
       console.error(e);
-      showMessage(e.message || 'Network error registering student', 'error');
-    } finally {
-      setRegistering(false);
+      showMessage('Error upgrading embeddings', 'error');
     }
   };
+
+  // Register new student (multi-photo)
 
   return (
     <div className="app">
@@ -331,20 +351,23 @@ function App() {
           <span className="tab-label">View Attendance</span>
           {activeTab === 'view-attendance' && <span className="nav-indicator" />}
         </button>
+        {/* Exports tab removed; moved under User/Admin tab */}
         <button className={`beautified-tab ${activeTab === 'manage-students' ? 'active' : ''}`} onClick={() => setActiveTab('manage-students')}>
           <span className="tab-icon">🧑‍🎓</span>
           <span className="tab-label">Manage Students</span>
           {activeTab === 'manage-students' && <span className="nav-indicator" />}
         </button>
-        <button className={`beautified-tab ${activeTab === 'register-student' ? 'active' : ''}`} onClick={() => setActiveTab('register-student')}>
-          <span className="tab-icon">➕</span>
-          <span className="tab-label">Register Student</span>
-          {activeTab === 'register-student' && <span className="nav-indicator" />}
-        </button>
-        <button className={`beautified-tab ${activeTab === 'backup' ? 'active' : ''}`} onClick={() => setActiveTab('backup')}>
-            <span className="tab-icon">💾</span>
-            <span className="tab-label">Backup</span>
-            {activeTab === 'backup' && <span className="nav-indicator" />}
+        {/* User/Admin tab: label depends on role */}
+        <button className={`beautified-tab ${activeTab === 'user' ? 'active' : ''}`} onClick={() => setActiveTab('user')}>
+          <span className="tab-icon">🛡️</span>
+          <span className="tab-label">{(() => {
+            const u = useAuth()?.user;
+            if (!u) return 'User';
+            if (u.role === 'superadmin') return 'Admin';
+            const name = (u.username || '').split(/\s|\.|_|-/)[0] || 'User';
+            return name.charAt(0).toUpperCase() + name.slice(1);
+          })()}</span>
+          {activeTab === 'user' && <span className="nav-indicator" />}
         </button>
       </nav>
 
@@ -357,16 +380,7 @@ function App() {
                 setAttendanceForm={setAttendanceForm}
                 onSubmit={handleAttendanceSubmit}
                 processing={processing}
-                onQuickAttendance={(pr) => {
-                  const normalized = {
-                    identified_students: pr.identified_students || pr.students_identified || [],
-                    total_faces: pr.total_faces_detected || pr.total_faces || 0,
-                    identified_count: (pr.identified_students || pr.students_identified || []).length,
-                  };
-                  setAttendanceResult(normalized);
-                  showMessage('Quick upload processed', 'success');
-                  loadAttendanceData();
-                }}
+                showMessage={showMessage}
               />
               {attendanceResult && (
                 <div className="attendance-result">
@@ -411,6 +425,7 @@ function App() {
             />
           )}
 
+
           {activeTab === 'manage-students' && (
             <ManageStudents
               students={students}
@@ -423,25 +438,105 @@ function App() {
               onUpdate={handleUpdateStudent}
               onCancel={cancelEdit}
               updating={updating}
+              onUpgradeEmbeddings={handleUpgradeEmbeddings}
             />
           )}
 
-          {activeTab === 'register-student' && (
-            <RegisterStudent
-              studentForm={studentForm}
-              setStudentForm={setStudentForm}
-              onSubmit={handleStudentSubmit}
-              registering={registering}
-            />
-          )}
-
-          {activeTab === 'backup' && (
-            <BackupManager showMessage={showMessage} />
-          )}
+          {activeTab === 'user' && (() => {
+            const u = useAuth()?.user;
+            if (!u) return null;
+            return (
+              <UserProfile 
+                user={u} 
+                showMessage={showMessage}
+              />
+            );
+          })()}
         </div>
       </main>
     </div>
   );
 }
 
-export default App;
+function App() {
+  const { token } = useAuth() || {};
+  const [needsBootstrap, setNeedsBootstrap] = useState(null);
+  const [checkingBootstrap, setCheckingBootstrap] = useState(true);
+
+  // Check if bootstrap is needed
+  useEffect(() => {
+    const checkBootstrap = async () => {
+      try {
+        // Try to get current user to see if any users exist
+        const response = await fetch(`${API_BASE}/auth/me`, {
+          headers: { Authorization: `Bearer ${token || 'dummy'}` }
+        });
+        
+        if (response.status === 401) {
+          // No valid token, check if we can bootstrap
+          const bootstrapResponse = await fetch(`${API_BASE}/auth/bootstrap-superadmin`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: 'test', password: 'test' })
+          });
+          
+          if (bootstrapResponse.status === 403) {
+            // Users exist, show login
+            setNeedsBootstrap(false);
+          } else {
+            // No users exist, show bootstrap
+            setNeedsBootstrap(true);
+          }
+        } else {
+          // Valid token, user is logged in
+          setNeedsBootstrap(false);
+        }
+      } catch (error) {
+        // Network error or other issue, assume bootstrap needed
+        setNeedsBootstrap(true);
+      } finally {
+        setCheckingBootstrap(false);
+      }
+    };
+
+    if (!token) {
+      checkBootstrap();
+    } else {
+      setNeedsBootstrap(false);
+      setCheckingBootstrap(false);
+    }
+  }, [token]);
+
+  if (checkingBootstrap) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh',
+        fontSize: 18,
+        color: '#6c757d'
+      }}>
+        🔄 Checking system status...
+      </div>
+    );
+  }
+
+  if (!token && needsBootstrap === true) {
+    return <BootstrapAdmin />;
+  }
+
+  if (!token && needsBootstrap === false) {
+    return <Login />;
+  }
+
+  return <AppShell />;
+}
+
+export default function RootApp() {
+  return (
+    <AuthProvider>
+      <App />
+    </AuthProvider>
+  );
+}

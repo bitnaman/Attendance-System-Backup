@@ -5,7 +5,7 @@ Handles schema migrations and database setup.
 """
 
 import logging
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 
 logger = logging.getLogger(__name__)
 
@@ -52,3 +52,32 @@ def run_light_migrations(engine):
             
     except Exception as e:
         logger.error(f"Migration step failed: {e}")
+
+
+def run_pg_light_migrations(engine):
+    """Best-effort, non-destructive PostgreSQL migrations to add new columns."""
+    try:
+        with engine.begin() as conn:
+            # attendance_sessions: add session_type
+            conn.execute(text("""
+                ALTER TABLE IF EXISTS attendance_sessions
+                ADD COLUMN IF NOT EXISTS session_type VARCHAR(20) DEFAULT 'normal'
+            """))
+
+            # attendance_records: add status, note, attachment_path
+            conn.execute(text("""
+                ALTER TABLE IF EXISTS attendance_records
+                ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'auto'
+            """))
+            conn.execute(text("""
+                ALTER TABLE IF EXISTS attendance_records
+                ADD COLUMN IF NOT EXISTS note TEXT
+            """))
+            conn.execute(text("""
+                ALTER TABLE IF EXISTS attendance_records
+                ADD COLUMN IF NOT EXISTS attachment_path VARCHAR(500)
+            """))
+
+            logger.info("✅ PostgreSQL light migrations applied (columns ensured)")
+    except Exception as e:
+        logger.error(f"PostgreSQL migration step failed: {e}")

@@ -9,10 +9,11 @@ from typing import Optional, List
 from fastapi import APIRouter, UploadFile, Form, File, HTTPException, Depends, Query
 from sqlalchemy.orm import Session
 
-from database import Student, Class, AttendanceRecord
+from database import Student, Class, AttendanceRecord, AttendanceSession, LeaveRecord
 from dependencies import get_db, get_face_recognizer
 from config import STATIC_DIR
 from utils.storage_utils import storage_manager
+from routers.auth import get_current_user
 
 logger = logging.getLogger(__name__)
 
@@ -321,7 +322,10 @@ async def get_students(
                 "class_section": s.class_section,
                 "is_active": s.is_active,
                 "created_at": s.created_at.isoformat() if s.created_at else None,
-                "photo_url": f"/static/dataset/{s.name.replace(' ', '_')}_{s.roll_no}/face.jpg" if s.photo_path else None
+                "photo_url": f"/static/dataset/{s.name.replace(' ', '_')}_{s.roll_no}/face.jpg" if s.photo_path else None,
+                "embedding_confidence": s.embedding_confidence,
+                "adaptive_threshold": s.adaptive_threshold,
+                "has_enhanced_embeddings": bool(s.embedding_variants_path)
             }
             for s in students
         ]
@@ -360,13 +364,128 @@ async def get_students_simple(
                 "is_active": s.is_active,
                 "created_at": s.created_at.isoformat() if s.created_at else None,
                 "updated_at": s.updated_at.isoformat() if s.updated_at else None,
-                "photo_url": f"/static/dataset/{s.name.replace(' ', '_')}_{s.roll_no}/face.jpg" if s.photo_path else None
+                "photo_url": f"/static/dataset/{s.name.replace(' ', '_')}_{s.roll_no}/face.jpg" if s.photo_path else None,
+                "embedding_confidence": s.embedding_confidence,
+                "adaptive_threshold": s.adaptive_threshold,
+                "has_enhanced_embeddings": bool(s.embedding_variants_path)
             }
             for s in students
         ]
     except Exception as e:
         logger.error(f"Get students error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to fetch students")
+
+
+@router.get("/filter")
+async def get_students_filtered(
+    class_id: Optional[int] = Query(None),
+    division: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(24, ge=1, le=200),
+    db: Session = Depends(get_db)
+):
+    """Filtered and paginated students list by class and division."""
+    try:
+        query = db.query(Student).join(Class).filter(Student.is_active == True)
+        if class_id:
+            query = query.filter(Student.class_id == class_id)
+        if division:
+            query = query.filter(Student.class_section == division)
+
+        total = query.count()
+        students = query.order_by(Student.roll_no).offset((page - 1) * page_size).limit(page_size).all()
+
+        return {
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "students": [
+                {
+                    "id": s.id,
+                    "name": s.name,
+                    "roll_no": s.roll_no,
+                    "class_name": s.class_obj.name,
+                    "class_section": s.class_section,
+                    "photo_url": f"/static/dataset/{s.name.replace(' ', '_')}_{s.roll_no}/face.jpg" if s.photo_path else None
+                }
+                for s in students
+            ]
+        }
+    except Exception as e:
+        logger.error(f"Filtered students error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to fetch filtered students")
+
+
+@router.get("/{student_id}/stats")
+async def get_student_stats(
+    student_id: int,
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    """Get individual student attendance statistics and recent timeline."""
+    student = db.query(Student).filter(Student.id == student_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    def _parse(d: str):
+        from datetime import datetime
+        return datetime.strptime(d, "%Y-%m-%d")
+
+    rec_q = db.query(AttendanceRecord).join(AttendanceSession).filter(AttendanceRecord.student_id == student_id)
+    if date_from:
+        rec_q = rec_q.filter(AttendanceSession.created_at >= _parse(date_from))
+    if date_to:
+        from datetime import timedelta
+        rec_q = rec_q.filter(AttendanceSession.created_at <= _parse(date_to) + timedelta(days=1))
+
+    total = rec_q.count()
+    present = rec_q.filter(AttendanceRecord.is_present == True).count()
+    absent = total - present
+
+    # Medical/authorized leaves
+    leave_q = db.query(LeaveRecord).filter(LeaveRecord.student_id == student_id)
+    if date_from:
+        leave_q = leave_q.filter(LeaveRecord.leave_date >= _parse(date_from))
+    if date_to:
+        leave_q = leave_q.filter(LeaveRecord.leave_date <= _parse(date_to))
+    medical = leave_q.filter(LeaveRecord.leave_type == "medical").count()
+    authorized = leave_q.filter(LeaveRecord.leave_type == "authorized").count()
+
+    rate = round((present / max(1, total)) * 100, 1) if total else 0.0
+
+    # Recent timeline (last 20)
+    recent = rec_q.order_by(AttendanceRecord.created_at.desc()).limit(20).all()
+    timeline = [
+        {
+            "date": r.created_at.isoformat() if r.created_at else None,
+            "session": r.session.session_name if r.session else None,
+            "class": f"{r.session.class_obj.name} {r.session.class_obj.section}" if r.session and r.session.class_obj else None,
+            "present": r.is_present,
+            "confidence": r.confidence,
+        }
+        for r in recent
+    ]
+
+    return {
+        "student": {
+            "id": student.id,
+            "name": student.name,
+            "roll_no": student.roll_no,
+            "class_id": student.class_id,
+            "class_name": student.class_obj.name if student.class_obj else None,
+            "class_section": student.class_section,
+        },
+        "stats": {
+            "total": total,
+            "present": present,
+            "absent": absent,
+            "medical": medical,
+            "authorized": authorized,
+            "attendance_rate": rate,
+        },
+        "timeline": timeline,
+    }
 
 
 @router.get("/{student_id}")
@@ -390,14 +509,17 @@ async def get_student(student_id: int, db: Session = Depends(get_db)):
         "class_section": student.class_section,
         "is_active": student.is_active,
         "created_at": student.created_at.isoformat() if student.created_at else None,
-        "photo_url": f"/static/dataset/{student.name.replace(' ', '_')}_{student.roll_no}/face.jpg" if student.photo_path else None
+        "photo_url": f"/static/dataset/{student.name.replace(' ', '_')}_{student.roll_no}/face.jpg" if student.photo_path else None,
+        "embedding_confidence": student.embedding_confidence,
+        "adaptive_threshold": student.adaptive_threshold,
+        "has_enhanced_embeddings": bool(student.embedding_variants_path)
     }
 
 
 @router.post("/")
 async def register_student(
     name: str = Form(...),
-    age: int = Form(...),
+    age: str = Form(...),
     roll_no: str = Form(...),
     prn: str = Form(...),
     seat_no: str = Form(...),
@@ -406,10 +528,14 @@ async def register_student(
     class_section: Optional[str] = Form(None),
     email: Optional[str] = Form(None),
     phone: Optional[str] = Form(None),
+    gender: Optional[str] = Form(None),
+    blood_group: Optional[str] = Form(None),
+    parents_mobile: Optional[str] = Form(None),
     image: Optional[UploadFile] = File(None),
     images: Optional[List[UploadFile]] = File(None),
     db: Session = Depends(get_db),
-    face_recognizer = Depends(get_face_recognizer)
+    face_recognizer = Depends(get_face_recognizer),
+    current_user = Depends(get_current_user)
 ):
     """Register a new student with class assignment"""
     try:
@@ -492,19 +618,15 @@ async def register_student(
                         local_path = str(STATIC_DIR / relative_path)
                         temp_paths.append(local_path)
 
-            # Generate face embeddings
-            if len(temp_paths) == 1:
-                embedding_info = face_recognizer.generate_and_save_embedding(
-                    image_path=temp_paths[0],
-                    student_name=name,
-                    student_roll_no=roll_no
-                )
-            else:
-                embedding_info = face_recognizer.generate_and_save_embeddings(
-                    image_paths=temp_paths,
-                    student_name=name,
-                    student_roll_no=roll_no
-                )
+            # Generate face embeddings using enhanced system
+            from ai.embedding_integration import generate_student_embeddings
+            
+            embedding_info = generate_student_embeddings(
+                image_paths=temp_paths,
+                student_name=name,
+                student_roll_no=roll_no,
+                use_enhanced=False  # Use standard system (more reliable)
+            )
                 
         except ValueError as e:
             logger.error(f"[REGISTRATION] Face embedding error: {e}")
@@ -523,17 +645,24 @@ async def register_student(
             if storage_manager.storage_type == "s3" and 'temp_dir' in locals():
                 shutil.rmtree(temp_dir, ignore_errors=True)
 
-        # Create student record with stored photo URLs
+        # Create student record with stored photo URLs and enhanced embedding data
         student = Student(
             name=name,
-            age=age,
+            age=int(age),
             roll_no=roll_no,
             prn=prn,
             seat_no=seat_no,
             email=email,
             phone=phone,
+            gender=gender,
+            blood_group=blood_group,
+            parents_mobile=parents_mobile,
             photo_path=stored_photos[0] if stored_photos else None,  # Store primary photo URL
             face_encoding_path=embedding_info["embedding_path"],
+            embedding_variants_path=embedding_info.get("variants_path"),
+            embedding_metadata_path=embedding_info.get("metadata_path"),
+            embedding_confidence=embedding_info.get("confidence_score", 0.8),
+            adaptive_threshold=0.6,  # Default adaptive threshold
             class_id=target_class_id,
             class_section=class_obj.section
         )
@@ -602,11 +731,18 @@ async def register_student_legacy(
 async def update_student(
     student_id: int,
     name: str = Form(None),
+    age: str = Form(None),
     roll_no: str = Form(None),
+    prn: str = Form(None),
+    seat_no: str = Form(None),
+    email: str = Form(None),
+    phone: str = Form(None),
     class_id: int = Form(None),
     photo: UploadFile = File(None),
+    photos: Optional[List[UploadFile]] = File(None),  # Support multiple photos for better embeddings
     db: Session = Depends(get_db),
-    face_recognizer = Depends(get_face_recognizer)
+    face_recognizer = Depends(get_face_recognizer),
+    current_user = Depends(get_current_user)
 ):
     """Update student information"""
     try:
@@ -618,16 +754,47 @@ async def update_student(
         if name is not None:
             student.name = name.strip()
         
+        if age is not None:
+            try:
+                student.age = int(age)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid age value")
+        
         if roll_no is not None:
             # Check for duplicate roll number
             existing = db.query(Student).filter(
                 Student.roll_no == roll_no,
-                Student.class_id == student.class_id,
                 Student.id != student_id
             ).first()
             if existing:
-                raise HTTPException(status_code=400, detail="Roll number already exists in this class")
+                raise HTTPException(status_code=400, detail="Roll number already exists")
             student.roll_no = roll_no.strip()
+        
+        if prn is not None:
+            # Check for duplicate PRN
+            existing = db.query(Student).filter(
+                Student.prn == prn,
+                Student.id != student_id
+            ).first()
+            if existing:
+                raise HTTPException(status_code=400, detail="PRN already exists")
+            student.prn = prn.strip()
+        
+        if seat_no is not None:
+            # Check for duplicate seat number
+            existing = db.query(Student).filter(
+                Student.seat_no == seat_no,
+                Student.id != student_id
+            ).first()
+            if existing:
+                raise HTTPException(status_code=400, detail="Seat number already exists")
+            student.seat_no = seat_no.strip()
+        
+        if email is not None:
+            student.email = email.strip() if email.strip() else None
+        
+        if phone is not None:
+            student.phone = phone.strip() if phone.strip() else None
         
         if class_id is not None:
             class_obj = db.query(Class).filter(Class.id == class_id, Class.is_active == True).first()
@@ -636,23 +803,84 @@ async def update_student(
             student.class_id = class_id
             student.class_section = class_obj.section
         
-        # Update photo if provided
-        if photo and photo.content_type.startswith('image/'):
-            student_dir = STATIC_DIR / "dataset" / f"{student.name.replace(' ', '_')}_{student.roll_no}"
-            student_dir.mkdir(parents=True, exist_ok=True)
+        # Update photo(s) if provided
+        upload_list = []
+        if photos:
+            upload_list = [f for f in photos if f is not None and (getattr(f, 'content_type', '') == '' or getattr(f, 'content_type', '').startswith('image/'))]
+        if not upload_list and photo and (getattr(photo, 'content_type', '') == '' or getattr(photo, 'content_type', '').startswith('image/')):
+            upload_list = [photo]
+        
+        if upload_list:
+            logger.info(f"🔄 Re-generating embeddings for student {student.name} with {len(upload_list)} photo(s) using current model")
             
-            photo_path = student_dir / "face.jpg"
-            with open(photo_path, "wb") as buffer:
-                shutil.copyfileobj(photo.file, buffer)
-            
-            # Process new face encoding
+            # IMPORTANT: Delete old embeddings BEFORE saving new photos to avoid removing newly saved files
             try:
-                encoding_vector = face_recognizer.process_registration_photo(str(photo_path))
-                if encoding_vector is not None:
-                    student.face_encoding = encoding_vector.tobytes()
-                    student.photo_path = str(photo_path)
+                if student.face_encoding_path and os.path.exists(student.face_encoding_path):
+                    old_dir = os.path.dirname(student.face_encoding_path)
+                    logger.info(f"🗑️ Deleting old embeddings: {old_dir}")
+                    if os.path.exists(old_dir):
+                        shutil.rmtree(old_dir)
+            except Exception as del_e:
+                logger.warning(f"Failed to delete old embeddings: {del_e}")
+            
+            # Save photos using storage manager
+            try:
+                stored_photos = []
+                for i, upload_file in enumerate(upload_list):
+                    photo_url = await storage_manager.save_dataset_photo(upload_file, student.name, student.roll_no, i + 1)
+                    stored_photos.append(photo_url)
+                    logger.info(f"✅ Photo {i+1} saved: {photo_url}")
+                
+                # Get local paths for embedding generation
+                temp_paths = []
+                temp_files = []
+                if storage_manager.storage_type == "s3":
+                    # Download from S3 for processing
+                    import tempfile
+                    import requests
+                    for photo_url in stored_photos:
+                        response = requests.get(photo_url)
+                        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.jpg')
+                        temp_file.write(response.content)
+                        temp_file.close()
+                        temp_paths.append(temp_file.name)
+                        temp_files.append(temp_file.name)
+                else:
+                    # For local storage, convert URLs to file paths
+                    for photo_url in stored_photos:
+                        if "/static/" in photo_url:
+                            relative_path = photo_url.split("/static/")[1]
+                            temp_paths.append(str(STATIC_DIR / relative_path))
+                
+                # Generate NEW embeddings with CURRENT model (Facenet512)
+                from ai.embedding_integration import generate_student_embeddings
+                
+                embedding_info = generate_student_embeddings(
+                    image_paths=temp_paths,
+                    student_name=student.name,
+                    student_roll_no=student.roll_no,
+                    use_enhanced=False  # Use standard system (more reliable, no TensorFlow bugs)
+                )
+                
+                # Update student with new embedding paths
+                student.photo_path = stored_photos[0] if stored_photos else None
+                student.face_encoding_path = embedding_info["embedding_path"]
+                student.embedding_variants_path = embedding_info.get("variants_path")
+                student.embedding_metadata_path = embedding_info.get("metadata_path")
+                student.embedding_confidence = embedding_info.get("confidence_score", 0.8)
+                
+                logger.info(f"✅ New embeddings generated with current model: {embedding_info['embedding_path']}")
+                
+                # Cleanup temp files if S3
+                for temp_file in temp_files:
+                    try:
+                        os.unlink(temp_file)
+                    except:
+                        pass
+                
             except Exception as e:
-                logger.warning(f"Face processing failed for updated photo: {e}")
+                logger.error(f"❌ Face embedding regeneration failed: {e}", exc_info=True)
+                raise HTTPException(status_code=400, detail=f"Failed to process photo: {str(e)}")
         
         db.commit()
         db.refresh(student)
@@ -680,7 +908,8 @@ async def update_student(
 async def delete_student(
     student_id: int,
     db: Session = Depends(get_db),
-    face_recognizer = Depends(get_face_recognizer)
+    face_recognizer = Depends(get_face_recognizer),
+    current_user = Depends(get_current_user)
 ):
     """Delete a student"""
     try:
@@ -697,8 +926,15 @@ async def delete_student(
                 shutil.rmtree(encoding_dir)
                 logger.info(f"Removed data directory: {encoding_dir}")
         
-        # Remove from database
+        # Remove related records first to avoid foreign key constraint violations
+        # Delete attendance records
         db.query(AttendanceRecord).filter(AttendanceRecord.student_id == student_id).delete()
+        
+        # Delete leave records
+        from database import LeaveRecord
+        db.query(LeaveRecord).filter(LeaveRecord.student_id == student_id).delete()
+        
+        # Now delete the student
         db.delete(student)
         db.commit()
 
@@ -718,11 +954,37 @@ async def delete_student(
         raise HTTPException(status_code=500, detail="Failed to delete student")
 
 
+@router.post("/{student_id}/upgrade-embeddings")
+async def upgrade_student_embeddings(
+    student_id: int,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Upgrade student's embeddings to enhanced system"""
+    try:
+        from ai.embedding_integration import upgrade_student_to_enhanced
+        
+        success = upgrade_student_to_enhanced(student_id, db)
+        
+        if success:
+            return {
+                "success": True,
+                "message": f"Student {student_id} embeddings upgraded to enhanced system"
+            }
+        else:
+            raise HTTPException(status_code=400, detail="Failed to upgrade embeddings")
+            
+    except Exception as e:
+        logger.error(f"Embedding upgrade error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to upgrade embeddings")
+
+
 @router.post("/{student_id}/toggle-status")
 async def toggle_student_status(
     student_id: int,
     db: Session = Depends(get_db),
-    face_recognizer = Depends(get_face_recognizer)
+    face_recognizer = Depends(get_face_recognizer),
+    current_user = Depends(get_current_user)
 ):
     """Toggle student active status"""
     student = db.query(Student).filter(Student.id == student_id).first()

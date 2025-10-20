@@ -18,7 +18,7 @@ const buildPhotoUrl = (student) => {
   return `${API_BASE}${photoUrl}${sep}v=${encodeURIComponent(ver)}`;
 };
 
-const StudentCard = ({ student, onEdit, onDelete, onToggle }) => {
+const StudentCard = ({ student, onEdit, onDelete, onToggle, onViewDetails, onUpgradeEmbeddings }) => {
   const DEFAULT_AVATAR = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjEyMCIgdmlld0JveD0iMCAwIDEyMCAxMjAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMjAiIGhlaWdodD0iMTIwIiBmaWxsPSIjRjhGOUZBIi8+CjxjaXJjbGUgY3g9IjYwIiBjeT0iNDUiIHI9IjE4IiBmaWxsPSIjOUNBM0FGIi8+CjxwYXRoIGQ9Ik0yNSA5NUMzMCA4MCA0NCA3MCA2MCA3MEM3NiA3MCA5MCA4MCA5NSA5NUwyNSA5NVoiIGZpbGw9IiM5Q0EzQUYiLz4KPHN2Zz4K';
 
   const handleImageError = (e) => {
@@ -141,9 +141,26 @@ const StudentCard = ({ student, onEdit, onDelete, onToggle }) => {
             {student.is_active ? 'Active' : 'Inactive'}
           </span>
         </div>
+        
+        {/* Enhanced Embedding Information */}
+        {student.has_enhanced_embeddings && (
+          <div className="enhanced-badge">
+            <span className="enhanced-icon">🚀</span>
+            <span className="enhanced-text">Enhanced AI</span>
+            {student.embedding_confidence && (
+              <span className="confidence-score">
+                {(student.embedding_confidence * 100).toFixed(0)}% confidence
+              </span>
+            )}
+          </div>
+        )}
       </div>
       
       <div className="card-actions">
+        <button className="modern-btn primary" onClick={() => onViewDetails(student.id)}>
+          <span className="btn-icon">👁️</span>
+          View Details
+        </button>
         <button className="modern-btn secondary" onClick={() => onEdit(student)}>
           <span className="btn-icon">✏️</span>
           Edit
@@ -152,6 +169,18 @@ const StudentCard = ({ student, onEdit, onDelete, onToggle }) => {
           <span className="btn-icon">🗑️</span>
           Delete
         </button>
+        
+        {/* Upgrade to Enhanced Embeddings Button */}
+        {!student.has_enhanced_embeddings && onUpgradeEmbeddings && (
+          <button 
+            className="modern-btn upgrade" 
+            onClick={() => onUpgradeEmbeddings(student.id)}
+            title="Upgrade to Enhanced AI Recognition"
+          >
+            <span className="btn-icon">🚀</span>
+            Upgrade AI
+          </button>
+        )}
         <button className="modern-btn" onClick={() => onToggle(student.id, student.is_active)}>
           <span className="btn-icon">{student.is_active ? '⏸️' : '▶️'}</span>
           {student.is_active ? 'Deactivate' : 'Activate'}
@@ -166,6 +195,7 @@ StudentCard.propTypes = {
   onEdit: PropTypes.func.isRequired,
   onDelete: PropTypes.func.isRequired,
   onToggle: PropTypes.func.isRequired,
+  onViewDetails: PropTypes.func.isRequired,
 };
 
 export default StudentCard;
