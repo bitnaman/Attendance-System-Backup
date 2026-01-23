@@ -144,9 +144,17 @@ def get_me(current_user: User = Depends(get_current_user)):
 
 
 @router.get("/users", response_model=list[UserOut])
-def get_users(db: Session = Depends(get_db), _: User = Depends(require_superadmin)):
-    """Get all users (superadmin only)"""
+def get_users(
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(require_superadmin)
+):
+    """Get all users (superadmin only) - hides primary admin from non-primary users"""
     users = db.query(User).order_by(User.created_at.desc()).all()
+    
+    # Hide primary admin users from everyone except primary admins themselves
+    if not current_user.is_primary_admin:
+        users = [u for u in users if not u.is_primary_admin]
+    
     return users
 
 

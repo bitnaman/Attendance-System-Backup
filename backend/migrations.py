@@ -55,7 +55,7 @@ def run_light_migrations(engine):
 
 
 def run_pg_light_migrations(engine):
-    """Best-effort, non-destructive PostgreSQL migrations to add new columns."""
+    """Best-effort, non-destructive migrations to add new columns."""
     try:
         with engine.begin() as conn:
             # attendance_sessions: add session_type
@@ -78,6 +78,6 @@ def run_pg_light_migrations(engine):
                 ADD COLUMN IF NOT EXISTS attachment_path VARCHAR(500)
             """))
 
-            logger.info("✅ PostgreSQL light migrations applied (columns ensured)")
+            logger.info("✅ SQLite light migrations applied (columns ensured)")
     except Exception as e:
-        logger.error(f"PostgreSQL migration step failed: {e}")
+        logger.error(f"SQLite migration step failed: {e}")

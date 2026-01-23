@@ -142,7 +142,7 @@ docker run -d --name frontend \
 
 ### Environment Variables
 
-**Backend (.env):**
+**Root `.env` file (single source of truth):**
 ```env
 # Database
 DATABASE_URL=postgresql://postgres:postgres123@postgres:5432/dental_attendance

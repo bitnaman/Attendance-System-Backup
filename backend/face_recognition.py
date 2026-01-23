@@ -1,56 +1,26 @@
 """
-PostgreSQL-Compatible Face Recognition with Class-Based Filtering.
+Face Recognition with Class-Based Filtering - CPU Optimized.
 Enhanced for class-specific attendance marking with configurable logging.
 """
 import os
 
-# Ensure Keras uses TensorFlow backend compatible with TF 2.19
-# These MUST be set before any TensorFlow / Keras / DeepFace imports
+# Ensure Keras uses TensorFlow backend
 os.environ.setdefault("KERAS_BACKEND", "tensorflow")
 os.environ.setdefault("TF_USE_LEGACY_KERAS", "1")
+
 import cv2
 import numpy as np
 import logging
 import shutil
 from typing import Dict, Any, List, Tuple, Optional
 
-# Configure TensorFlow GPU BEFORE any TensorFlow/DeepFace imports
+# Configure TensorFlow for CPU-only mode
 try:
     import tensorflow as tf
-    import os
     
-    # Get COMPUTE_MODE from environment
-    COMPUTE_MODE_SETTING = os.getenv("COMPUTE_MODE", "auto").lower()
-    if COMPUTE_MODE_SETTING not in ["auto", "gpu", "cpu"]:
-        COMPUTE_MODE_SETTING = "auto"
-    
-    # Check COMPUTE_MODE setting
-    if COMPUTE_MODE_SETTING == "cpu":
-        # Force CPU mode
-        tf.config.set_visible_devices([], 'GPU')
-        print("🖥️ COMPUTE_MODE=cpu - GPU disabled, using CPU only")
-    elif COMPUTE_MODE_SETTING == "gpu":
-        # Force GPU mode - will fail if GPU not available
-        gpus = tf.config.list_physical_devices('GPU')
-        if not gpus:
-            raise RuntimeError("COMPUTE_MODE=gpu but no GPU devices found!")
-        # Enable memory growth for GPUs
-        for gpu in gpus:
-            tf.config.experimental.set_memory_growth(gpu, True)
-        print(f"🚀 COMPUTE_MODE=gpu - Forcing GPU mode ({len(gpus)} GPU(s) available)")
-    else:  # auto mode
-        # Auto-detect: enable GPU if available, fallback to CPU
-        gpus = tf.config.list_physical_devices('GPU')
-        if gpus:
-            try:
-                # Enable memory growth BEFORE GPU initialization
-                for gpu in gpus:
-                    tf.config.experimental.set_memory_growth(gpu, True)
-                print(f"⚡ COMPUTE_MODE=auto - GPU detected, using {len(gpus)} GPU(s)")
-            except RuntimeError as e:
-                print(f"⚠️ COMPUTE_MODE=auto - GPU setup failed: {e}, falling back to CPU")
-        else:
-            print("🖥️ COMPUTE_MODE=auto - No GPU detected, using CPU")
+    # Force CPU mode
+    tf.config.set_visible_devices([], 'GPU')
+    print("🖥️ CPU-ONLY MODE")
     
     # Set log level to reduce clutter
     tf.get_logger().setLevel('ERROR')
@@ -62,30 +32,39 @@ from deepface import DeepFace
 from utils.logging_utils import create_throttled_logger
 from config import (
     LOG_THROTTLE_MS, FACE_RECOGNITION_MODEL, FACE_DETECTOR_BACKEND, 
-    FACE_DISTANCE_THRESHOLD, MODEL_CONFIGS, COMPUTE_MODE, ADAPTIVE_THRESHOLD_MODE
+    FACE_DISTANCE_THRESHOLD, MODEL_CONFIGS, ADAPTIVE_THRESHOLD_MODE,
+    # New .env-controlled settings
+    MIN_CONFIDENCE_THRESHOLD as CONFIG_MIN_CONFIDENCE,
+    MIN_FACE_SIZE as CONFIG_MIN_FACE_SIZE,
+    MIN_FACE_QUALITY_SCORE as CONFIG_MIN_QUALITY,
+    ENHANCED_PREPROCESSING as CONFIG_ENHANCED_PREPROCESSING,
+    ENABLE_MULTI_DETECTOR as CONFIG_ENABLE_MULTI_DETECTOR,
+    ENABLE_QUALITY_ASSESSMENT as CONFIG_ENABLE_QUALITY_ASSESSMENT,
+    THRESHOLD_SMALL_GROUP_OFFSET, THRESHOLD_LARGE_GROUP_OFFSET,
+    AMBIGUITY_MARGIN, DETECTOR_FALLBACK_SEQUENCE
 )
 
-# --- Enhanced Configuration Constants for Better Accuracy ---
-RECOGNITION_MODEL = FACE_RECOGNITION_MODEL  # Now configurable via config.py
-DETECTOR_BACKEND = FACE_DETECTOR_BACKEND    # Now configurable via config.py  
-DISTANCE_THRESHOLD = FACE_DISTANCE_THRESHOLD  # Now configurable via config.py
-MIN_CONFIDENCE_THRESHOLD = 0.10   # Minimum confidence to consider a match (10%)
-ENHANCED_PREPROCESSING = True      # Enable enhanced image preprocessing
+# --- All Configuration Now Controlled via config.py/.env ---
+RECOGNITION_MODEL = FACE_RECOGNITION_MODEL  # Controlled via .env
+DETECTOR_BACKEND = FACE_DETECTOR_BACKEND    # Controlled via .env  
+DISTANCE_THRESHOLD = FACE_DISTANCE_THRESHOLD  # Controlled via .env
+MIN_CONFIDENCE_THRESHOLD = CONFIG_MIN_CONFIDENCE   # Controlled via .env (default: 0.35)
+ENHANCED_PREPROCESSING = CONFIG_ENHANCED_PREPROCESSING  # Controlled via .env
 
-# 🚀 GROUP PHOTO OPTIMIZATION SETTINGS
-ENABLE_ADAPTIVE_THRESHOLD = (ADAPTIVE_THRESHOLD_MODE == "enabled")  # Controlled by .env file
-ENABLE_MULTI_DETECTOR = True       # Use multiple detectors for better coverage
-ENABLE_QUALITY_ASSESSMENT = True   # Filter and prioritize high-quality faces
-MIN_FACE_SIZE = 30                 # Minimum face size in pixels
-MIN_FACE_QUALITY_SCORE = 0.3       # Minimum quality score (0-1)
+# 🚀 GROUP PHOTO OPTIMIZATION SETTINGS (All from .env)
+ENABLE_ADAPTIVE_THRESHOLD = (ADAPTIVE_THRESHOLD_MODE == "enabled")  # Controlled by .env
+ENABLE_MULTI_DETECTOR = CONFIG_ENABLE_MULTI_DETECTOR  # Controlled via .env
+ENABLE_QUALITY_ASSESSMENT = CONFIG_ENABLE_QUALITY_ASSESSMENT  # Controlled via .env
+MIN_FACE_SIZE = CONFIG_MIN_FACE_SIZE  # Controlled via .env (default: 30)
+MIN_FACE_QUALITY_SCORE = CONFIG_MIN_QUALITY  # Controlled via .env (default: 0.4)
 
-# Adaptive threshold configuration
-THRESHOLD_SINGLE_PHOTO = DISTANCE_THRESHOLD      # Strict for 1-2 faces
-THRESHOLD_SMALL_GROUP = DISTANCE_THRESHOLD + 4   # Moderate for 3-10 faces
-THRESHOLD_LARGE_GROUP = DISTANCE_THRESHOLD + 8   # Relaxed for 11+ faces
+# Adaptive threshold configuration (offsets from .env)
+THRESHOLD_SINGLE_PHOTO = DISTANCE_THRESHOLD  # Strict for 1-2 faces
+THRESHOLD_SMALL_GROUP = DISTANCE_THRESHOLD + THRESHOLD_SMALL_GROUP_OFFSET  # For 3-10 faces
+THRESHOLD_LARGE_GROUP = DISTANCE_THRESHOLD + THRESHOLD_LARGE_GROUP_OFFSET  # For 11+ faces
 
-# Multi-detector fallback order (best to most forgiving)
-DETECTOR_CASCADE = ['mtcnn', 'retinaface', 'mediapipe', 'opencv']
+# Multi-detector fallback order (from .env DETECTOR_FALLBACK_SEQUENCE)
+DETECTOR_CASCADE = DETECTOR_FALLBACK_SEQUENCE
 
 # Get model-specific configuration
 MODEL_CONFIG = MODEL_CONFIGS.get(RECOGNITION_MODEL, {"threshold": 20.0, "embedding_size": 512})
@@ -246,7 +225,7 @@ def enhance_face_image(face_image: np.ndarray) -> np.ndarray:
 
 class ClassBasedFaceRecognizer:
     """
-    Face recognition system with class-based filtering for PostgreSQL backend.
+    Face recognition system with class-based filtering for SQLite backend.
     """
     def __init__(self):
         """
@@ -254,10 +233,9 @@ class ClassBasedFaceRecognizer:
         """
         self.known_students_db = []
         self.current_class_students = []  # Students for currently selected class
-        self.gpu_available = False
         self.tf_version = None
         
-        # Check TensorFlow and GPU status first
+        # Check TensorFlow status
         self._check_tensorflow_setup()
         
         # Build the model once to avoid slow first-time calls
@@ -293,89 +271,29 @@ class ClassBasedFaceRecognizer:
 
     def _check_tensorflow_setup(self):
         """
-        Check TensorFlow installation and GPU availability based on COMPUTE_MODE.
+        Check TensorFlow installation - CPU-only mode.
         """
         try:
             import tensorflow as tf
             self.tf_version = tf.__version__
-            logger.info(f"🔧 TENSORFLOW SETUP")
-            logger.info(f"   📦 Version: {self.tf_version}")
-            logger.info(f"   ⚙️ Compute Mode: {COMPUTE_MODE.upper()}")
             
-            # Check actual GPU availability
-            gpus = tf.config.list_physical_devices('GPU')
-            gpu_count = len(gpus)
             
-            # Determine if GPU should be used based on COMPUTE_MODE
-            if COMPUTE_MODE == "cpu":
-                # CPU mode forced
-                self.gpu_available = False
-                logger.info(f"   🖥️ Mode: CPU ONLY (forced)")
-                logger.info(f"   💡 GPU detection: {gpu_count} GPU(s) available but not used")
-                
-            elif COMPUTE_MODE == "gpu":
-                # GPU mode forced
-                if gpu_count > 0:
-                    self.gpu_available = True
-                    logger.info(f"   🚀 GPU Acceleration: ✅ ENABLED (forced)")
-                    logger.info(f"   🎮 GPU Count: {gpu_count}")
-                    for i, gpu in enumerate(gpus):
-                        logger.info(f"      GPU {i}: {gpu.name}")
-                    
-                    # Test GPU computation
-                    try:
-                        with tf.device('/GPU:0'):
-                            test_tensor = tf.constant([1.0, 2.0, 3.0])
-                            test_result = tf.reduce_sum(test_tensor)
-                        logger.info(f"   ✅ GPU Test: PASSED ({test_result.numpy()})")
-                    except Exception as gpu_error:
-                        logger.warning(f"   ⚠️ GPU Test: FAILED - {gpu_error}")
-                        logger.info(f"   ℹ️ GPU is still available despite test failure")
-                else:
-                    # GPU forced but not available - this is an error
-                    self.gpu_available = False
-                    logger.error(f"   ❌ COMPUTE_MODE=gpu but no GPU available!")
-                    logger.error(f"   💡 Tip: Change COMPUTE_MODE to 'auto' or 'cpu' in .env")
-                    
-            else:  # auto mode
-                # Auto-detect
-                if gpu_count > 0:
-                    self.gpu_available = True
-                    logger.info(f"   🚀 GPU Acceleration: ✅ ENABLED (auto-detected)")
-                    logger.info(f"   🎮 GPU Count: {gpu_count}")
-                    for i, gpu in enumerate(gpus):
-                        logger.info(f"      GPU {i}: {gpu.name}")
-                    
-                    # Test GPU computation
-                    try:
-                        with tf.device('/GPU:0'):
-                            test_tensor = tf.constant([1.0, 2.0, 3.0])
-                            test_result = tf.reduce_sum(test_tensor)
-                        logger.info(f"   ✅ GPU Test: PASSED ({test_result.numpy()})")
-                    except Exception as gpu_error:
-                        logger.warning(f"   ⚠️ GPU Test: FAILED - {gpu_error}")
-                        logger.info(f"   ℹ️ GPU is still available despite test failure")
-                else:
-                    self.gpu_available = False
-                    logger.info(f"   🖥️ Compute Mode: CPU only (no GPU detected)")
-            # Show GPU performance tips only for auto mode with no GPU
-            if COMPUTE_MODE == "auto" and not self.gpu_available:
-                logger.info(f"   💡 GPU Performance Tips:")
-                logger.info(f"      • Install NVIDIA GPU with CUDA support")
-                logger.info(f"      • Install: pip install tensorflow[and-cuda]")
-                logger.info(f"      • Or set COMPUTE_MODE=cpu in .env to suppress this message")
+            logger.info(f"� TENSORFLOW SETUP")
+            logger.info(f"   � Version: {self.tf_version}")
+            logger.info(f"   🖥️ Mode: CPU ONLY")
+            
                 
         except ImportError:
-            logger.error("❌ TensorFlow not found! Install with: pip install tensorflow[and-cuda]")
+            logger.error("❌ TensorFlow not found! Install with: pip install tensorflow")
             raise ImportError("TensorFlow is required for face recognition")
         except Exception as e:
             logger.error(f"❌ TensorFlow setup failed: {e}")
             raise
 
     def load_all_students(self, db_session):
-        """Load all active students from PostgreSQL database."""
+        """Load all active students from database."""
         from database import Student, Class  # Local import to avoid circular dependency
-        logger.info("Loading all active students from PostgreSQL...")
+        logger.info("Loading all active students from database...")
         self.known_students_db = []
         
         # Join students with their classes
@@ -466,7 +384,7 @@ class ClassBasedFaceRecognizer:
                     except Exception as e:
                         logger.warning(f"Could not load encoding for {student.name}: {e}")
         
-        logger.info(f"Loaded {len(self.known_students_db)} student embeddings from PostgreSQL.")
+        logger.info(f"Loaded {len(self.known_students_db)} student embeddings from SQLite.")
 
     def load_class_students(self, db_session, class_id: int):
         """Load students for a specific class only."""
@@ -1063,6 +981,9 @@ class ClassBasedFaceRecognizer:
                 # Weighted combination of distance metrics
                 combined_distance = (0.7 * euclidean_dist) + (0.3 * cosine_distance * 20)  # Scale cosine to similar range
                 
+                # Log distance for each candidate
+                logger.debug(f"   📐 Student '{students_to_match[i]['name']}': euclidean={euclidean_dist:.2f}, cosine_sim={cosine_similarity:.3f}, combined={combined_distance:.2f}")
+                
                 if combined_distance < min_distance:
                     second_best_distance = min_distance  # Track second-best for ambiguity detection
                     min_distance = combined_distance
@@ -1077,6 +998,12 @@ class ClassBasedFaceRecognizer:
                     'cosine_sim': cosine_similarity,
                     'combined': combined_distance
                 })
+            
+            # 🔍 Log best match decision details
+            if best_student_idx != -1:
+                logger.info(f"🔍 Face {faces_processed}: Best match '{students_to_match[best_student_idx]['name']}' - distance={min_distance:.2f}, threshold={adaptive_threshold:.1f}, quality={face_quality:.2f}")
+            else:
+                logger.info(f"🔍 Face {faces_processed}: No candidate found in known embeddings")
             
             # 🎯 ENHANCED MATCHING DECISION with adaptive threshold
             if best_student_idx != -1:
@@ -1097,8 +1024,8 @@ class ClassBasedFaceRecognizer:
                 final_confidence = (0.6 * base_confidence) + (0.4 * cosine_confidence)
                 
                 # ⚠️ AMBIGUITY DETECTION: Check if match is clearly the best
-                ambiguity_margin = second_best_distance - min_distance
-                is_ambiguous = ambiguity_margin < 3.0  # Require reasonable separation
+                ambiguity_margin_value = second_best_distance - min_distance
+                is_ambiguous = ambiguity_margin_value < AMBIGUITY_MARGIN  # Controlled via .env
                 
                 # Quality-adjusted confidence
                 quality_adjusted_confidence = final_confidence * (0.7 + 0.3 * face_quality)
@@ -1112,13 +1039,13 @@ class ClassBasedFaceRecognizer:
                         # Ambiguous match - require higher confidence
                         if quality_adjusted_confidence >= 0.7:
                             match_accepted = True
-                            match_reason = f"ambiguous match (margin={ambiguity_margin:.1f}) but high confidence"
+                            match_reason = f"ambiguous match (margin={ambiguity_margin_value:.1f}) but high confidence"
                         else:
-                            match_reason = f"rejected due to ambiguity (margin={ambiguity_margin:.1f}, conf={quality_adjusted_confidence:.2f})"
+                            match_reason = f"rejected due to ambiguity (margin={ambiguity_margin_value:.1f}, conf={quality_adjusted_confidence:.2f})"
                     else:
                         # Clear winner
                         match_accepted = True
-                        match_reason = f"clear match (margin={ambiguity_margin:.1f})"
+                        match_reason = f"clear match (margin={ambiguity_margin_value:.1f})"
                 else:
                     match_reason = f"distance {min_distance:.1f} > threshold {adaptive_threshold:.1f}"
                 
@@ -1145,11 +1072,11 @@ class ClassBasedFaceRecognizer:
                                   f"quality: {face_quality:.2f}, threshold: {adaptive_threshold:.1f})")
                     else:
                         results["unidentified_faces_count"] += 1
-                        logger.debug(f"❌ REJECTED: {matched_student['name']} - confidence too low "
+                        logger.info(f"❌ REJECTED #{faces_processed}: '{matched_student['name']}' - confidence too low "
                                    f"({quality_adjusted_confidence:.3f} < {MIN_CONFIDENCE_THRESHOLD})")
                 else:
                     results["unidentified_faces_count"] += 1
-                    logger.debug(f"❌ REJECTED: {match_reason}")
+                    logger.info(f"❌ REJECTED #{faces_processed}: '{matched_student['name']}' - {match_reason}")
             else:
                 results["unidentified_faces_count"] += 1
                 logger.debug(f"❌ NO MATCH: No suitable candidate found")

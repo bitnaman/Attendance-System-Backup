@@ -1,23 +1,19 @@
 #!/bin/bash
 
-# Setup script for local development environment
-echo "🎓 Setting up Facial Attendance System for Local Development"
+# Setup script for local development environment - CPU-only with SQLite
+echo "🎓 Setting up Facial Attendance System for Local Development (CPU-only)"
 echo "=============================================================="
 
 # Create .env file for local development
 cat > .env << 'EOF'
 # ================================================================================================
-# FACIAL ATTENDANCE SYSTEM - LOCAL DEVELOPMENT CONFIGURATION
+# FACIAL ATTENDANCE SYSTEM - LOCAL DEVELOPMENT CONFIGURATION (CPU-ONLY + SQLite)
 # ================================================================================================
 
-# Database Configuration (PostgreSQL - Local)
-POSTGRES_HOST=localhost
-POSTGRES_PORT=5432
-POSTGRES_DB=dental_attendance
-POSTGRES_USER=dental_user
-POSTGRES_PASSWORD=root
+# Database Configuration (SQLite - Local)
+DB_FILE=attendance.db
 
-# Redis Configuration (Local)
+# Redis Configuration (Local - Optional)
 REDIS_HOST=localhost
 REDIS_PORT=6379
 REDIS_DB=0
@@ -29,18 +25,16 @@ PHOTO_STORAGE_TYPE=local
 PHOTO_STORAGE_PATH=./backend/static
 BACKEND_BASE_URL=http://localhost:8000
 
-# Face Recognition Configuration
-FACE_RECOGNITION_MODEL=ArcFace
-FACE_DETECTOR_BACKEND=mtcnn
-FACE_DISTANCE_THRESHOLD=18.0
-ADAPTIVE_THRESHOLD_MODE=disabled
+# Face Recognition Configuration (CPU-optimized)
+FACE_RECOGNITION_MODEL=Facenet512
+FACE_DETECTOR_BACKEND=opencv
+FACE_DISTANCE_THRESHOLD=16.0
+ADAPTIVE_THRESHOLD_MODE=enabled
 
-# Performance Configuration
-COMPUTE_MODE=auto
-TF_FORCE_GPU_ALLOW_GROWTH=true
-CUDA_VISIBLE_DEVICES=0
+# Performance Configuration (CPU-only)
+COMPUTE_MODE=cpu
 ENABLE_ASYNC_PROCESSING=true
-BATCH_SIZE=32
+BATCH_SIZE=1
 MAX_WORKERS=4
 
 # Feature Flags
@@ -63,22 +57,19 @@ EOF
 
 echo "✅ Created .env file for local development"
 
-# Test database connection
+# Initialize SQLite database
 echo ""
-echo "🔍 Testing database connection..."
+echo "🔍 Initializing SQLite database..."
 python3 -c "
 import sys, os
 sys.path.append('backend')
-from backend.database import SessionLocal
-
 try:
-    db = SessionLocal()
-    db.execute('SELECT 1')
-    print('✅ Database connection successful!')
-    db.close()
+    from backend.database import init_fresh_db
+    init_fresh_db()
+    print('✅ Database initialized successfully!')
 except Exception as e:
-    print(f'❌ Database connection failed: {e}')
-    print('💡 Make sure PostgreSQL is running and the database exists')
+    print(f'❌ Database initialization failed: {e}')
+    sys.exit(1)
 "
 
 echo ""

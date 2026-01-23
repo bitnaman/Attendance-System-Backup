@@ -64,7 +64,9 @@ class AttendanceExporter:
     
     def get_student_analytics(self, start_date: datetime, end_date: datetime,
                             class_id: Optional[int], db: Session) -> List[Dict[str, Any]]:
-        """Get student attendance analytics"""
+        """Get student attendance analytics with leave-aware calculation"""
+        from database import LeaveRecord
+        
         students_query = db.query(Student).filter(Student.is_active == True)
         if class_id:
             students_query = students_query.filter(Student.class_id == class_id)
@@ -82,9 +84,27 @@ class AttendanceExporter:
             
             total_sessions = student_records.count()
             present_sessions = student_records.filter(AttendanceRecord.is_present == True).count()
+            absent_sessions = total_sessions - present_sessions
+            
+            # Get approved leave sessions for this student in the period
+            leave_q = db.query(LeaveRecord).filter(
+                LeaveRecord.student_id == student.id,
+                LeaveRecord.is_approved == True,
+                LeaveRecord.leave_date >= start_date,
+                LeaveRecord.leave_date <= end_date
+            )
+            approved_leaves = leave_q.all()
+            approved_leave_sessions = sum(
+                leave.sessions_count if hasattr(leave, 'sessions_count') and leave.sessions_count else 1 
+                for leave in approved_leaves
+            )
             
             if total_sessions > 0:
-                attendance_rate = round((present_sessions / total_sessions) * 100, 1)
+                # Calculate effective attendance (with leaves counted as present)
+                effective_present = min(present_sessions + approved_leave_sessions, total_sessions)
+                attendance_rate = round((effective_present / total_sessions) * 100, 1)
+                adjusted_absent = max(0, absent_sessions - approved_leave_sessions)
+                
                 status = "🟢 Excellent" if attendance_rate >= 90 else "🟡 Good" if attendance_rate >= 75 else "🟠 Average" if attendance_rate >= 60 else "🔴 Poor"
                 
                 student_analytics.append({
@@ -92,7 +112,8 @@ class AttendanceExporter:
                     'Roll No': student.roll_no,
                     'Total Sessions': total_sessions,
                     'Present': present_sessions,
-                    'Absent': total_sessions - present_sessions,
+                    'Leave Sessions': approved_leave_sessions,
+                    'Adjusted Absent': adjusted_absent,
                     'Attendance %': attendance_rate,
                     'Status': status
                 })
@@ -339,6 +360,8 @@ class AttendanceExporter:
     async def export_csv(self, period: str, class_id: Optional[int], db: Session) -> StreamingResponse:
         """Export attendance data to CSV format"""
         try:
+            from database import LeaveRecord
+            
             # Get date filters and class name
             start_date, end_date, period_name = self.get_date_filters(period)
             class_name = self.get_class_name(class_id, db)
@@ -360,17 +383,36 @@ class AttendanceExporter:
                 
                 total_sessions = student_records.count()
                 present_sessions = student_records.filter(AttendanceRecord.is_present == True).count()
+                absent_sessions = total_sessions - present_sessions
+                
+                # Get approved leave sessions
+                leave_q = db.query(LeaveRecord).filter(
+                    LeaveRecord.student_id == student.id,
+                    LeaveRecord.is_approved == True,
+                    LeaveRecord.leave_date >= start_date,
+                    LeaveRecord.leave_date <= end_date
+                )
+                approved_leaves = leave_q.all()
+                approved_leave_sessions = sum(
+                    leave.sessions_count if hasattr(leave, 'sessions_count') and leave.sessions_count else 1 
+                    for leave in approved_leaves
+                )
                 
                 if total_sessions > 0:
-                    attendance_rate = round((present_sessions / total_sessions) * 100, 1)
+                    # Calculate effective attendance rate
+                    effective_present = min(present_sessions + approved_leave_sessions, total_sessions)
+                    attendance_rate = round((effective_present / total_sessions) * 100, 1)
+                    adjusted_absent = max(0, absent_sessions - approved_leave_sessions)
+                    
                     csv_data.append({
                         'Student_Name': student.name,
                         'Roll_Number': student.roll_no,
                         'PRN': student.prn,
                         'Total_Sessions': total_sessions,
                         'Present_Sessions': present_sessions,
-                        'Absent_Sessions': total_sessions - present_sessions,
-                        'Attendance_Percentage': attendance_rate
+                        'Leave_Sessions': approved_leave_sessions,
+                        'Adjusted_Absent': adjusted_absent,
+                        'Effective_Attendance_Percentage': attendance_rate
                     })
             
             # Create CSV content

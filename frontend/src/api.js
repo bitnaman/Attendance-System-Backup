@@ -60,6 +60,55 @@ export const fetchAttendanceData = async () => {
 export const fetchSessionRecords = (sessionId) =>
   apiRequest(`/attendance/records?session_id=${encodeURIComponent(sessionId)}`);
 
+// Student management
+export const deleteStudent = async (studentId) => {
+  const token = localStorage.getItem('auth_token');
+  if (!token) {
+    throw new Error('Authentication required. Please log in again.');
+  }
+  
+  const res = await fetch(`${API_BASE}/student/${studentId}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+  
+  if (!res.ok) {
+    if (res.status === 401) {
+      throw new Error('Session expired. Please log in again.');
+    }
+    const errorData = await res.json().catch(() => ({ detail: 'Failed to delete student' }));
+    throw new Error(errorData.detail || 'Failed to delete student');
+  }
+  
+  return res.json();
+};
+
+export const toggleStudentStatus = async (studentId) => {
+  const token = localStorage.getItem('auth_token');
+  if (!token) {
+    throw new Error('Authentication required. Please log in again.');
+  }
+  
+  const res = await fetch(`${API_BASE}/student/${studentId}/toggle-status`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+  
+  if (!res.ok) {
+    if (res.status === 401) {
+      throw new Error('Session expired. Please log in again.');
+    }
+    const errorData = await res.json().catch(() => ({ detail: 'Failed to toggle status' }));
+    throw new Error(errorData.detail || 'Failed to toggle status');
+  }
+  
+  return res.json();
+};
+
 // New helpers for exports UI
 export const fetchExportClasses = () => apiRequest('/attendance/classes/available');
 export const fetchStudentsFiltered = (classId, division, page = 1, pageSize = 100) => {

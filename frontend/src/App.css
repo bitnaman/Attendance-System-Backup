@@ -6,6 +6,7 @@
 /* Import all modular CSS files for organized styling */
 @import './styles/variables.css';
 @import './styles/base.css';
+@import './styles/login.css';
 @import './styles/header.css';
 @import './styles/navigation.css';
 @import './styles/buttons.css';
@@ -21,6 +22,78 @@
 @import './styles/register-student.css';
 @import './styles/manage-students.css';
 @import './styles/backup-manager.css';
+
+/* Model Compatibility Warning Banner */
+.compatibility-warning-banner {
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  border-bottom: 3px solid #f59e0b;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  animation: slide-down 0.3s ease-out;
+}
+
+@keyframes slide-down {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.warning-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.warning-icon {
+  font-size: 1.5rem;
+  animation: pulse-warning 2s ease-in-out infinite;
+}
+
+@keyframes pulse-warning {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+.warning-text {
+  flex: 1;
+  color: #92400e;
+  font-size: 0.9rem;
+}
+
+.warning-text strong {
+  color: #78350f;
+}
+
+.warning-dismiss {
+  background: transparent;
+  border: none;
+  color: #92400e;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.warning-dismiss:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.warning-action {
+  font-size: 0.8rem;
+  color: #b45309;
+  padding-left: 2.5rem;
+}
 
 /* Root Application Layout - Full Screen */
 .app {

@@ -6,7 +6,9 @@ import os
 import shutil
 import logging
 from typing import Optional, List
-from fastapi import APIRouter, UploadFile, Form, File, HTTPException, Depends, Query
+from datetime import datetime
+from fastapi import APIRouter, UploadFile, Form, File, HTTPException, Depends, Query, BackgroundTasks
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from database import Student, Class, AttendanceRecord, AttendanceSession, LeaveRecord
@@ -423,7 +425,15 @@ async def get_student_stats(
     date_to: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
-    """Get individual student attendance statistics and recent timeline."""
+    """
+    Get individual student attendance statistics and recent timeline.
+    
+    Attendance calculation includes approved medical/authorized leaves:
+    - Raw Attendance Rate = Present / Total Sessions × 100
+    - Effective Attendance Rate = (Present + Approved Leave Sessions) / Total Sessions × 100
+    """
+    from sqlalchemy import func
+    
     student = db.query(Student).filter(Student.id == student_id).first()
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
@@ -443,16 +453,46 @@ async def get_student_stats(
     present = rec_q.filter(AttendanceRecord.is_present == True).count()
     absent = total - present
 
-    # Medical/authorized leaves
-    leave_q = db.query(LeaveRecord).filter(LeaveRecord.student_id == student_id)
+    # Medical/authorized leaves - now we calculate both count and sessions
+    leave_q = db.query(LeaveRecord).filter(
+        LeaveRecord.student_id == student_id,
+        LeaveRecord.is_approved == True  # Only count approved leaves
+    )
     if date_from:
         leave_q = leave_q.filter(LeaveRecord.leave_date >= _parse(date_from))
     if date_to:
         leave_q = leave_q.filter(LeaveRecord.leave_date <= _parse(date_to))
-    medical = leave_q.filter(LeaveRecord.leave_type == "medical").count()
-    authorized = leave_q.filter(LeaveRecord.leave_type == "authorized").count()
+    
+    # Count leave records by type
+    medical_count = leave_q.filter(LeaveRecord.leave_type == "medical").count()
+    authorized_count = leave_q.filter(LeaveRecord.leave_type == "authorized").count()
+    
+    # Sum up total sessions covered by approved leaves
+    approved_leave_sessions = db.query(
+        func.coalesce(func.sum(LeaveRecord.sessions_count), 0)
+    ).filter(
+        LeaveRecord.student_id == student_id,
+        LeaveRecord.is_approved == True
+    )
+    if date_from:
+        approved_leave_sessions = approved_leave_sessions.filter(LeaveRecord.leave_date >= _parse(date_from))
+    if date_to:
+        approved_leave_sessions = approved_leave_sessions.filter(LeaveRecord.leave_date <= _parse(date_to))
+    
+    approved_leave_sessions_total = int(approved_leave_sessions.scalar() or 0)
 
-    rate = round((present / max(1, total)) * 100, 1) if total else 0.0
+    # Calculate attendance rates
+    # Raw rate (without considering leaves)
+    raw_rate = round((present / max(1, total)) * 100, 1) if total else 0.0
+    
+    # Effective rate (with approved leaves counted as attended)
+    # Formula: (Present + Approved Leave Sessions) / Total Sessions × 100
+    # Note: We cap at 100% to avoid leaves exceeding actual sessions
+    effective_present = min(present + approved_leave_sessions_total, total)
+    effective_rate = round((effective_present / max(1, total)) * 100, 1) if total else 0.0
+    
+    # Calculate adjusted absent count
+    adjusted_absent = max(0, absent - approved_leave_sessions_total)
 
     # Recent timeline (last 20)
     recent = rec_q.order_by(AttendanceRecord.created_at.desc()).limit(20).all()
@@ -480,11 +520,25 @@ async def get_student_stats(
             "total": total,
             "present": present,
             "absent": absent,
-            "medical": medical,
-            "authorized": authorized,
-            "attendance_rate": rate,
+            "adjusted_absent": adjusted_absent,  # Absent minus approved leaves
+            "medical_leaves": medical_count,
+            "authorized_leaves": authorized_count,
+            "approved_leave_sessions": approved_leave_sessions_total,  # Total sessions covered by leaves
+            "attendance_rate": raw_rate,  # Raw attendance (for backward compatibility)
+            "effective_attendance_rate": effective_rate,  # With leaves counted
+            # Legacy fields for backward compatibility
+            "medical": medical_count,
+            "authorized": authorized_count,
         },
         "timeline": timeline,
+        "calculation_info": {
+            "formula": "(Present Sessions + Approved Leave Sessions) / Total Sessions × 100",
+            "present_sessions": present,
+            "approved_leave_sessions": approved_leave_sessions_total,
+            "total_sessions": total,
+            "raw_rate": raw_rate,
+            "effective_rate": effective_rate,
+        }
     }
 
 
@@ -645,6 +699,9 @@ async def register_student(
             if storage_manager.storage_type == "s3" and 'temp_dir' in locals():
                 shutil.rmtree(temp_dir, ignore_errors=True)
 
+        # Import config for model tracking
+        from config import FACE_RECOGNITION_MODEL, FACE_DETECTOR_BACKEND
+        
         # Create student record with stored photo URLs and enhanced embedding data
         student = Student(
             name=name,
@@ -663,6 +720,9 @@ async def register_student(
             embedding_metadata_path=embedding_info.get("metadata_path"),
             embedding_confidence=embedding_info.get("confidence_score", 0.8),
             adaptive_threshold=0.6,  # Default adaptive threshold
+            embedding_model=FACE_RECOGNITION_MODEL,  # Track which model was used
+            embedding_detector=FACE_DETECTOR_BACKEND,  # Track which detector was used
+            has_enhanced_embeddings=embedding_info.get("method") == "enhanced",
             class_id=target_class_id,
             class_section=class_obj.section
         )
@@ -957,26 +1017,267 @@ async def delete_student(
 @router.post("/{student_id}/upgrade-embeddings")
 async def upgrade_student_embeddings(
     student_id: int,
+    photos: List[UploadFile] = File(default=None),
+    use_existing_photos: str = Form(default="false"),
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Upgrade student's embeddings to enhanced system"""
+    """
+    Upgrade student's embeddings to enhanced system.
+    
+    Can either:
+    1. Upload new photos for the student (when appearance has changed)
+    2. Re-process existing photos with enhanced AI
+    """
     try:
+        student = db.query(Student).filter(Student.id == student_id).first()
+        if not student:
+            raise HTTPException(status_code=404, detail="Student not found")
+        
+        use_existing = use_existing_photos.lower() == "true"
+        
+        # If new photos are provided, save them first
+        if photos and len(photos) > 0 and not use_existing:
+            logger.info(f"🆕 Received {len(photos)} new photo(s) for student {student.name}")
+            
+            # Create student directory
+            student_dir = f"static/dataset/{student.name.replace(' ', '_')}_{student.roll_no}"
+            os.makedirs(student_dir, exist_ok=True)
+            
+            # Clear old photos (optional - keep backup)
+            backup_dir = f"{student_dir}/backup_{int(datetime.now().timestamp())}"
+            os.makedirs(backup_dir, exist_ok=True)
+            
+            # Move existing images to backup
+            for file in os.listdir(student_dir):
+                if file.endswith(('.jpg', '.jpeg', '.png', '.bmp')) and not file.startswith('backup'):
+                    old_path = os.path.join(student_dir, file)
+                    if os.path.isfile(old_path):
+                        import shutil
+                        shutil.move(old_path, os.path.join(backup_dir, file))
+            
+            # Save new photos
+            saved_paths = []
+            for idx, photo in enumerate(photos):
+                if photo.filename:
+                    # Validate it's an image
+                    if not photo.content_type.startswith('image/'):
+                        continue
+                    
+                    # Generate filename
+                    ext = os.path.splitext(photo.filename)[1] or '.jpg'
+                    if idx == 0:
+                        filename = f"face{ext}"
+                    else:
+                        filename = f"face_{idx}{ext}"
+                    
+                    file_path = os.path.join(student_dir, filename)
+                    
+                    # Save the file
+                    content = await photo.read()
+                    with open(file_path, 'wb') as f:
+                        f.write(content)
+                    
+                    saved_paths.append(file_path)
+                    logger.info(f"📸 Saved new photo: {file_path}")
+            
+            if not saved_paths:
+                raise HTTPException(status_code=400, detail="No valid photos were uploaded")
+            
+            # Update student's photo URL
+            student.photo_url = f"/static/dataset/{student.name.replace(' ', '_')}_{student.roll_no}/face{os.path.splitext(saved_paths[0])[1]}"
+            db.commit()
+        
+        # Now upgrade embeddings (either with new or existing photos)
         from ai.embedding_integration import upgrade_student_to_enhanced
+        from config import FACE_RECOGNITION_MODEL, FACE_DETECTOR_BACKEND
         
         success = upgrade_student_to_enhanced(student_id, db)
         
         if success:
+            # Refresh the student object to get updated values
+            db.refresh(student)
+            
+            # Reload student in face recognizer memory
+            fr = get_face_recognizer()
+            if fr:
+                # Remove old entry
+                fr.known_students_db = [
+                    s for s in fr.known_students_db 
+                    if s['id'] != student_id
+                ]
+                # Add updated entry
+                fr.add_student_to_memory({
+                    'id': student.id,
+                    'name': student.name,
+                    'roll_no': student.roll_no,
+                    'class_id': student.class_id,
+                    'class_name': student.class_obj.name if student.class_obj else 'Unknown',
+                    'class_section': student.class_section,
+                    'face_encoding_path': student.face_encoding_path
+                })
+                logger.info(f"✅ Reloaded student {student.name} into face recognizer memory")
+            
             return {
                 "success": True,
-                "message": f"Student {student_id} embeddings upgraded to enhanced system"
+                "message": f"Embedding upgraded successfully using {FACE_RECOGNITION_MODEL} model",
+                "student_id": student_id,
+                "model_used": FACE_RECOGNITION_MODEL,
+                "detector_used": FACE_DETECTOR_BACKEND,
+                "used_new_photos": not use_existing and photos is not None and len(photos) > 0
             }
         else:
             raise HTTPException(status_code=400, detail="Failed to upgrade embeddings")
             
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Embedding upgrade error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to upgrade embeddings")
+        raise HTTPException(status_code=500, detail=f"Failed to upgrade embeddings: {str(e)}")
+
+
+@router.post("/{student_id}/upgrade-embeddings-async")
+async def upgrade_student_embeddings_async(
+    student_id: int,
+    background_tasks: BackgroundTasks,
+    photos: List[UploadFile] = File(default=None),
+    use_existing_photos: str = Form(default="false"),
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """
+    Start embedding upgrade as a background task.
+    Returns a task_id that can be used to track progress via SSE.
+    """
+    from utils.background_tasks import task_manager, run_embedding_upgrade_async
+    from database import SessionLocal
+    import asyncio
+    
+    student = db.query(Student).filter(Student.id == student_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    use_existing = use_existing_photos.lower() == "true"
+    saved_paths = []
+    
+    # If new photos provided, save them first (this is fast)
+    if photos and len(photos) > 0 and not use_existing:
+        student_dir = f"static/dataset/{student.name.replace(' ', '_')}_{student.roll_no}"
+        os.makedirs(student_dir, exist_ok=True)
+        
+        # Backup old photos
+        backup_dir = f"{student_dir}/backup_{int(datetime.now().timestamp())}"
+        os.makedirs(backup_dir, exist_ok=True)
+        
+        for file in os.listdir(student_dir):
+            if file.endswith(('.jpg', '.jpeg', '.png', '.bmp')) and not file.startswith('backup'):
+                old_path = os.path.join(student_dir, file)
+                if os.path.isfile(old_path):
+                    shutil.move(old_path, os.path.join(backup_dir, file))
+        
+        # Save new photos
+        for idx, photo in enumerate(photos):
+            if photo.filename and photo.content_type.startswith('image/'):
+                ext = os.path.splitext(photo.filename)[1] or '.jpg'
+                filename = f"face{ext}" if idx == 0 else f"face_{idx}{ext}"
+                file_path = os.path.join(student_dir, filename)
+                
+                content = await photo.read()
+                with open(file_path, 'wb') as f:
+                    f.write(content)
+                
+                saved_paths.append(os.path.abspath(file_path))
+        
+        # Update photo URL
+        if saved_paths:
+            student.photo_url = f"/static/dataset/{student.name.replace(' ', '_')}_{student.roll_no}/face{os.path.splitext(saved_paths[0])[1]}"
+            db.commit()
+    
+    # Create background task
+    task_id = task_manager.create_task("embedding_upgrade")
+    
+    # Start background task
+    async def run_task():
+        await run_embedding_upgrade_async(
+            task_id=task_id,
+            student_id=student_id,
+            db_session_factory=SessionLocal,
+            new_photo_paths=saved_paths if saved_paths else None,
+            use_existing=use_existing
+        )
+    
+    asyncio.create_task(run_task())
+    
+    return {
+        "success": True,
+        "task_id": task_id,
+        "message": f"Embedding upgrade started for {student.name}",
+        "student_id": student_id
+    }
+
+
+@router.get("/task/{task_id}/status")
+async def get_task_status(task_id: str):
+    """Get the current status of a background task"""
+    from utils.background_tasks import task_manager
+    
+    task = task_manager.get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    return task.to_dict()
+
+
+@router.get("/task/{task_id}/stream")
+async def stream_task_progress(task_id: str):
+    """
+    Server-Sent Events endpoint for real-time task progress updates.
+    Connect to this endpoint to receive live updates.
+    """
+    from fastapi.responses import StreamingResponse
+    from utils.background_tasks import task_manager, TaskStatus
+    import asyncio
+    import json
+    
+    task = task_manager.get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    async def event_generator():
+        last_progress = -1
+        check_count = 0
+        max_checks = 600  # 10 minutes max (600 * 1 second)
+        
+        while check_count < max_checks:
+            task = task_manager.get_task(task_id)
+            if not task:
+                yield f"data: {json.dumps({'error': 'Task not found'})}\n\n"
+                break
+            
+            # Send update if progress changed or status changed
+            if task.progress != last_progress or task.status in [TaskStatus.COMPLETED, TaskStatus.FAILED]:
+                last_progress = task.progress
+                yield f"data: {json.dumps(task.to_dict())}\n\n"
+                
+                # Stop streaming if task is done
+                if task.status in [TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED]:
+                    break
+            
+            await asyncio.sleep(1)  # Check every second
+            check_count += 1
+        
+        # Final message
+        yield f"data: {json.dumps({'done': True})}\n\n"
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
 
 
 @router.post("/{student_id}/toggle-status")

@@ -1,6 +1,6 @@
 # ================================================================================================
-# COMPREHENSIVE SYSTEM REQUIREMENTS FOR FACIAL ATTENDANCE SYSTEM
-# Last Updated: September 6, 2025
+# COMPREHENSIVE SYSTEM REQUIREMENTS FOR FACIAL ATTENDANCE SYSTEM - CPU ONLY
+# Last Updated: November 19, 2025
 # ================================================================================================
 
 # ================================================================================================
@@ -13,62 +13,39 @@ pydantic==2.11.7                      # Data validation and serialization
 pydantic-core==2.33.2                 # Pydantic core validation engine
 
 # ================================================================================================
-# DATABASE LAYER (PostgreSQL)
+# DATABASE LAYER (SQLite)
 # ================================================================================================
 sqlalchemy==2.0.43                    # Modern SQL toolkit and ORM
-psycopg2-binary==2.9.10              # PostgreSQL adapter (includes libpq)
-# NOTE: PostgreSQL server itself required separately via:
-#       sudo apt install postgresql postgresql-contrib
-#       Current system: PostgreSQL 14.18 (Ubuntu 14.18-0ubuntu0.22.04.1)
+# SQLite is built into Python - no additional driver needed
 
 # ================================================================================================
-# MACHINE LEARNING AND AI CORE
+# MACHINE LEARNING AND AI CORE (CPU-ONLY)
 # ================================================================================================
-tensorflow==2.19.1                    # Main ML framework with CUDA 12.5.1 support
+tensorflow==2.19.1                    # ML framework - CPU version
 tf-keras==2.19.0                      # High-level Keras API
-numpy==1.26.4                         # Fundamental array computing (compatible with all packages)
+numpy==1.26.4                         # Fundamental array computing
 scipy==1.15.3                         # Scientific computing
 scikit-learn==1.7.1                   # General machine learning
 scikit-image==0.25.2                  # Image processing algorithms
 pandas==2.3.1                         # Data manipulation and analysis
 
 # ================================================================================================
-# GPU AND CUDA RUNTIME (NVIDIA GeForce GTX 1650)
-# ================================================================================================
-# NVIDIA CUDA Runtime Libraries will be auto-installed by TensorFlow and PyTorch
-# The packages below are managed automatically - do not pin versions as they may conflict
-# with TensorFlow 2.19.1 and PyTorch 2.8.0 requirements
-# NOTE: Requires NVIDIA Driver 575.64.03+ and CUDA 12.x toolkit
-# ================================================================================================
-
-# ================================================================================================
 # COMPUTER VISION AND FACE RECOGNITION
 # ================================================================================================
 # Core Computer Vision
-opencv-python==4.10.0.84              # OpenCV with GUI support (compatible with numpy<2)
+opencv-python==4.10.0.84              # OpenCV with GUI support
 opencv-contrib-python==4.10.0.84      # OpenCV with additional algorithms
 opencv-python-headless==4.10.0.84     # OpenCV without GUI (backup)
-pillow==11.3.0                         # Python Imaging Library
+pillow==11.3.0                        # Python Imaging Library
 
 # Deep Learning Face Recognition
-deepface==0.0.95                       # Unified face recognition library
-# Face Detection Backends (All Available):
+deepface==0.0.95                      # Unified face recognition library
+
+# Face Detection Backends (CPU-optimized):
 mtcnn==1.0.0                          # Multi-task CNN for face detection  
 retina-face==0.0.17                   # RetinaFace face detector
-dlib==20.0.0                          # Computer vision and ML library
 mediapipe==0.10.21                    # Google MediaPipe face detection
-# SSD and OpenCV detectors included in opencv packages
-
-# PyTorch Ecosystem (Required by some face recognition models)
-torch==2.8.0                          # PyTorch deep learning framework
-torchvision==0.23.0                   # PyTorch computer vision
-torchaudio==2.8.0                     # PyTorch audio processing
-triton==3.4.0                         # GPU kernel compiler
-
-# TensorFlow Ecosystem
-tensorboard==2.19.0                   # TensorFlow visualization toolkit
-tensorboard-data-server==0.7.2        # TensorBoard data server
-tensorflow-io-gcs-filesystem==0.37.1  # TensorFlow I/O for cloud storage
+# Note: dlib removed (requires C++ compilation, optional for face detection)
 
 # ================================================================================================
 # WEB UTILITIES AND AUTHENTICATION
@@ -86,8 +63,7 @@ python-dotenv==1.1.1                  # Environment variable management
 # FILE PROCESSING AND EXPORT
 # ================================================================================================
 openpyxl==3.1.5                       # Excel file manipulation
-pandas==2.3.1                         # Data analysis (listed above but critical here)
-xlsxwriter                             # Alternative Excel writer
+xlsxwriter                            # Alternative Excel writer
 reportlab==3.6.8                      # PDF generation
 
 # ================================================================================================
@@ -134,31 +110,42 @@ gunicorn==23.0.0                      # WSGI HTTP Server for production
 uvloop==0.21.0                        # Ultra fast asyncio event loop
 
 # ================================================================================================
-# ADVANCED FEATURES AND OPTIMIZATIONS
+# ADVANCED FEATURES (CPU-OPTIMIZED)
 # ================================================================================================
-redis==6.4.0                        # Redis for caching and load balancing
-scikit-learn==1.7.1                 # Machine learning for predictive analytics
-psutil==7.1.0                       # System monitoring and resource management
-websockets==15.0.1                  # Real-time monitoring and WebSocket support
+redis==6.4.0                          # Redis for caching and load balancing
+psutil==7.1.0                         # System monitoring and resource management
 
-# CLOUD STORAGE INTEGRATION
 # ================================================================================================
-google-cloud-storage==2.10.0        # Google Cloud Storage integration
-google-auth==2.23.4                 # Google authentication
-google-auth-oauthlib==1.1.0         # OAuth2 authentication
-google-auth-httplib2==0.1.1         # HTTP transport for authentication
+# CLOUD STORAGE INTEGRATION - Optional
+# ================================================================================================
+google-cloud-storage==2.10.0          # Google Cloud Storage integration
+google-auth==2.23.4                   # Google authentication
+google-auth-oauthlib==1.1.0           # OAuth2 authentication
+google-auth-httplib2==0.1.1           # HTTP transport for authentication
+
+# ================================================================================================
+# TENSORBOARD (FOR MONITORING) - Optional
+# ================================================================================================
+tensorboard==2.19.0                   # TensorFlow visualization toolkit
+tensorboard-data-server==0.7.2        # TensorBoard data server
+tensorflow-io-gcs-filesystem==0.37.1  # TensorFlow I/O for cloud storage
 
 # ================================================================================================
 # SYSTEM INFORMATION
 # ================================================================================================
 # TESTED ENVIRONMENT:
-# - OS: Ubuntu 22.04 LTS  
-# - Python: 3.10
-# - PostgreSQL: 14.18
-# - NVIDIA Driver: 575.64.03
-# - CUDA: 12.9 (Runtime: 12.5.82)
-# - GPU: NVIDIA GeForce GTX 1650 (4GB VRAM)
-# - TensorFlow: 2.19.1 with GPU support
-# - Redis: 6.4.0 for advanced caching
-# - Total packages: 145+ dependencies
+# - OS: Ubuntu 22.04 LTS / Windows 10+ / macOS 11+
+# - Python: 3.10+
+# - Database: SQLite (built-in)
+# - Compute: CPU-only (no GPU required)
+# - TensorFlow: 2.19.1 CPU version
+# - Redis: 6.4.0 for caching (optional)
+# - Total packages: 80+ dependencies
+#
+# REMOVED FROM PREVIOUS VERSIONS:
+# - PostgreSQL driver (psycopg2-binary) - migrated to SQLite
+# - PyTorch (torch, torchvision, torchaudio, triton) - optional for some models
+# - CUDA runtime libraries - CPU-only version
+# - dlib (GPU-dependent, complex build) - optional for face detection
+# - GPU-specific TensorFlow extensions
 # ================================================================================================

@@ -153,8 +153,8 @@
 /* Enhanced Students Grid */
 .students-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-  gap: 2rem;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
   margin-top: 2rem;
 }
 
@@ -164,8 +164,8 @@
     rgba(255, 255, 255, 0.95) 0%, 
     rgba(248, 249, 250, 0.95) 100%);
   backdrop-filter: blur(20px);
-  border-radius: 20px;
-  padding: 1.5rem;
+  border-radius: 16px;
+  padding: 1rem 1rem 0.8rem;
   box-shadow: 
     0 8px 25px rgba(0, 0, 0, 0.1),
     0 0 0 1px rgba(255, 255, 255, 0.5),
@@ -256,13 +256,13 @@
 }
 
 .student-photo {
-  width: 100px;
-  height: 100px;
+  width: 80px;
+  height: 80px;
   border-radius: 50%;
   object-fit: cover;
   border: 3px solid #fff;
   box-shadow: 
-    0 6px 20px rgba(0, 0, 0, 0.15),
+    0 4px 15px rgba(0, 0, 0, 0.15),
     0 0 0 2px rgba(59, 130, 246, 0.1);
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
@@ -513,15 +513,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
-  font-size: 1.2rem;
+  gap: 0.3rem;
+  font-size: 1.05rem;
   font-weight: 700;
   color: #1f2937;
-  margin-bottom: 1rem;
+  margin-bottom: 0.6rem;
 }
 
 .name-icon {
-  font-size: 1rem;
+  font-size: 0.9rem;
   animation: name-pulse 3s ease-in-out infinite;
 }
 
@@ -534,17 +534,17 @@
 .info-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.4rem;
-  margin-bottom: 1rem;
+  gap: 0.3rem;
+  margin-bottom: 0.6rem;
 }
 
 .info-item {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.4rem 0.6rem;
+  gap: 0.3rem;
+  padding: 0.3rem 0.5rem;
   background: rgba(248, 250, 252, 0.7);
-  border-radius: 8px;
+  border-radius: 6px;
   transition: all 0.3s ease;
   border: 1px solid rgba(226, 232, 240, 0.5);
 }
@@ -613,16 +613,16 @@
 .status-badge {
   display: flex;
   justify-content: center;
-  margin-bottom: 0.8rem;
+  margin-bottom: 0.5rem;
 }
 
 .status-badge .status {
   display: flex;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.4rem 0.8rem;
-  border-radius: 12px;
-  font-size: 0.75rem;
+  gap: 0.25rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 10px;
+  font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.3px;
@@ -643,33 +643,34 @@
 /* Enhanced Action Buttons - SPECIFIC TO STUDENT CARDS ONLY */
 .student-card .card-actions {
   display: flex;
-  gap: 0.3rem;
-  margin-top: 0.8rem;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
   justify-content: center;
   align-items: stretch;
 }
 
 .student-card .modern-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.5rem 0.6rem;
-  border-radius: 8px;
+  gap: 0.25rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 6px;
   border: none;
   font-weight: 600;
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
   text-transform: uppercase;
   letter-spacing: 0.2px;
-  flex: 1;
+  flex: 0 1 auto;
   justify-content: center;
-  min-width: 85px;
-  max-width: none; /* Remove max-width restriction */
-  min-height: 36px;
-  white-space: nowrap; /* Prevent text wrapping */
+  min-width: auto;
+  max-width: none;
+  min-height: 28px;
+  white-space: nowrap;
 }
 
 .student-card .btn-icon {
@@ -681,69 +682,109 @@
   transform: scale(1.1);
 }
 
+/* Primary button (View Details) */
+.student-card .modern-btn.primary {
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  color: white;
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+}
+
+.student-card .modern-btn.primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+}
+
+/* Secondary button (Edit) */
 .student-card .modern-btn.secondary {
   background: linear-gradient(135deg, #3b82f6, #2563eb);
   color: white;
-  box-shadow: 0 3px 12px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
 }
 
 .student-card .modern-btn.secondary:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
 }
 
+/* Danger button (Delete) */
 .student-card .modern-btn.danger {
   background: linear-gradient(135deg, #ef4444, #dc2626);
   color: white;
-  box-shadow: 0 3px 12px rgba(239, 68, 68, 0.3);
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
 }
 
 .student-card .modern-btn.danger:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
 }
 
-.student-card .modern-btn:not(.secondary):not(.danger) {
+/* Upgrade AI button */
+.student-card .modern-btn.upgrade {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+}
+
+.student-card .modern-btn.upgrade:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+}
+
+/* Refresh/Update AI button (for already-enhanced students) */
+.student-card .modern-btn.refresh {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+.student-card .modern-btn.refresh:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+/* Default button (Activate/Deactivate) */
+.student-card .modern-btn:not(.secondary):not(.danger):not(.primary):not(.upgrade):not(.refresh) {
   background: linear-gradient(135deg, #10b981, #059669);
   color: white;
-  box-shadow: 0 3px 12px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
 }
 
-.student-card .modern-btn:not(.secondary):not(.danger):hover {
+.student-card .modern-btn:not(.secondary):not(.danger):not(.primary):not(.upgrade):not(.refresh):hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
 }
 
 /* Responsive adjustments for mobile */
 @media (max-width: 768px) {
+  .students-grid {
+    grid-template-columns: 1fr;
+  }
+  
   .info-grid {
     grid-template-columns: 1fr;
   }
   
   .student-card .card-actions {
-    flex-direction: column;
-    gap: 0.5rem;
+    flex-wrap: wrap;
+    gap: 0.4rem;
   }
   
   .student-card .modern-btn {
-    flex: none;
-    width: 100%;
-    max-width: none;
+    flex: 1 1 45%;
     min-width: auto;
   }
   
   .card-badge {
-    font-size: 0.7rem;
-    padding: 0.4rem 0.8rem;
+    font-size: 0.65rem;
+    padding: 0.3rem 0.6rem;
   }
 }
 
 /* Medium screens optimization */
 @media (min-width: 769px) and (max-width: 1024px) {
   .student-card .modern-btn {
-    font-size: 0.65rem;
-    padding: 0.5rem 0.4rem;
-    min-width: 75px;
+    font-size: 0.6rem;
+    padding: 0.35rem 0.4rem;
   }
 }
 
@@ -1065,5 +1106,156 @@
     flex-direction: column;
     align-items: stretch;
     gap: var(--spacing-sm);
+  }
+}
+
+/* ==============================
+   COLLAPSIBLE STUDENT CARD STYLES
+   ============================== */
+
+/* Expand/Collapse Indicator */
+.expand-indicator {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 3;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.expand-icon {
+  font-size: 0.65rem;
+  color: #6b7280;
+  transition: transform 0.3s ease;
+}
+
+.student-card:hover .expand-indicator {
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+}
+
+.student-card:hover .expand-icon {
+  color: white;
+}
+
+/* Collapsed State */
+.student-card.collapsed {
+  cursor: pointer;
+  padding: 0.8rem 1rem;
+}
+
+.student-card.collapsed .student-avatar {
+  margin-bottom: 0.5rem;
+}
+
+.student-card.collapsed .student-photo {
+  width: 60px;
+  height: 60px;
+}
+
+.student-card.collapsed .student-name {
+  font-size: 0.95rem;
+  margin-bottom: 0.3rem;
+}
+
+.student-card.collapsed .collapsed-info {
+  display: block;
+}
+
+.student-card.collapsed .collapsed-info .info-item {
+  justify-content: center;
+}
+
+/* Expanded State */
+.student-card.expanded {
+  cursor: default;
+  padding: 1rem 1rem 0.8rem;
+}
+
+.student-card.expanded .collapsed-info {
+  display: none;
+}
+
+/* Collapsed Info (visible only in collapsed state) */
+.collapsed-info {
+  margin-bottom: 0.3rem;
+}
+
+.collapsed-info .info-item.class-info {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(147, 51, 234, 0.08));
+  border: 1px solid rgba(59, 130, 246, 0.15);
+  padding: 0.35rem 0.6rem;
+  border-radius: 8px;
+}
+
+.collapsed-info .info-label {
+  display: none;
+}
+
+.collapsed-info .info-value {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #4b5563;
+}
+
+/* Card expansion animation */
+.student-card {
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.student-card.collapsed:hover {
+  transform: translateY(-4px) scale(1.01);
+  box-shadow: 
+    0 10px 30px rgba(0, 0, 0, 0.12),
+    0 0 0 1px rgba(255, 255, 255, 0.6);
+}
+
+.student-card.expanded:hover {
+  transform: translateY(-8px) scale(1.02);
+}
+
+/* Click hint for collapsed cards */
+.student-card.collapsed::after {
+  content: 'Click to expand';
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.6rem;
+  color: #9ca3af;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.student-card.collapsed:hover::after {
+  opacity: 1;
+}
+
+/* Responsive adjustments for collapsed cards */
+@media (max-width: 768px) {
+  .student-card.collapsed .student-photo {
+    width: 50px;
+    height: 50px;
+  }
+  
+  .student-card.collapsed .student-name {
+    font-size: 0.85rem;
+  }
+  
+  .expand-indicator {
+    width: 20px;
+    height: 20px;
+  }
+  
+  .expand-icon {
+    font-size: 0.55rem;
   }
 }

@@ -5,24 +5,46 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
-load_dotenv()
-
 # Base directories
-BASE_DIR = Path(__file__).parent
-ROOT_DIR = BASE_DIR.parent
+BASE_DIR = Path(__file__).parent  # backend/
+ROOT_DIR = BASE_DIR.parent         # project root
+
+# Load environment variables from ROOT .env file (single source of truth)
+# This ensures the same .env is used regardless of working directory
+env_path = ROOT_DIR / ".env"
+if env_path.exists():
+    load_dotenv(dotenv_path=env_path, override=True)
+    print(f"✅ Loaded config from: {env_path}")
+else:
+    print(f"⚠️ WARNING: .env file not found at {env_path}")
+    load_dotenv()  # Fallback to default behavior
+
 STATIC_DIR = BASE_DIR / "static"
 
-# Database settings
-# Replace these with your actual PostgreSQL credentials
-POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
-POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
-POSTGRES_DB = os.getenv("POSTGRES_DB", "dental_attendance")
-POSTGRES_USER = os.getenv("POSTGRES_USER", "postgres")
-POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "root")
+# ===== DATABASE CONFIGURATION =====
+# Supports both PostgreSQL and SQLite via DATABASE_TYPE env variable
+DATABASE_TYPE = os.getenv("DATABASE_TYPE", "sqlite").lower()  # "postgresql" or "sqlite"
 
-# PostgreSQL connection URL
-DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+if DATABASE_TYPE == "postgresql":
+    # PostgreSQL Configuration
+    POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
+    POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
+    POSTGRES_DB = os.getenv("POSTGRES_DB", "dental_attendance")
+    POSTGRES_USER = os.getenv("POSTGRES_USER", "dental_user")
+    POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "")
+    
+    DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+    DB_ENGINE_ARGS = {}  # PostgreSQL doesn't need special args
+else:
+    # SQLite Configuration (default)
+    DB_FILE = os.getenv("DB_FILE", "attendance.db")
+    
+    # Ensure DB_FILE is an absolute path
+    if not os.path.isabs(DB_FILE):
+        DB_FILE = str(BASE_DIR / DB_FILE)
+    
+    DATABASE_URL = f"sqlite:///{DB_FILE}"
+    DB_ENGINE_ARGS = {"check_same_thread": False}  # SQLite-specific: allow multiple threads
 
 # Redis Configuration
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
@@ -69,11 +91,28 @@ ADAPTIVE_THRESHOLD_MODE = os.getenv("ADAPTIVE_THRESHOLD_MODE", "disabled").lower
 if ADAPTIVE_THRESHOLD_MODE not in ["enabled", "disabled"]:
     ADAPTIVE_THRESHOLD_MODE = "disabled"  # Fallback to disabled if invalid
 
-# Compute mode configuration
-# Options: "auto" (detect automatically), "gpu" (force GPU), "cpu" (force CPU)
-COMPUTE_MODE = os.getenv("COMPUTE_MODE", "auto").lower()
-if COMPUTE_MODE not in ["auto", "gpu", "cpu"]:
-    COMPUTE_MODE = "auto"  # Fallback to auto if invalid value
+# ===== CORE RECOGNITION SETTINGS (Controllable via .env) =====
+# Minimum confidence to consider a match (0.0 to 1.0)
+MIN_CONFIDENCE_THRESHOLD = float(os.getenv("MIN_CONFIDENCE_THRESHOLD", "0.35"))
+
+# Minimum face size in pixels (faces smaller than this are rejected)
+MIN_FACE_SIZE = int(os.getenv("MIN_FACE_SIZE", "30"))
+
+# Enable enhanced image preprocessing (histogram eq, sharpening, denoising)
+ENHANCED_PREPROCESSING = os.getenv("ENHANCED_PREPROCESSING", "true").lower() == "true"
+
+# Enable multi-detector cascade (fallback through multiple detectors)
+ENABLE_MULTI_DETECTOR = os.getenv("ENABLE_MULTI_DETECTOR", "true").lower() == "true"
+
+# Enable face quality assessment (filters low-quality faces)
+ENABLE_QUALITY_ASSESSMENT = os.getenv("ENABLE_QUALITY_ASSESSMENT", "true").lower() == "true"
+
+# Adaptive threshold adjustments for group photos
+THRESHOLD_SMALL_GROUP_OFFSET = float(os.getenv("THRESHOLD_SMALL_GROUP_OFFSET", "4.0"))  # Added for 3-10 faces
+THRESHOLD_LARGE_GROUP_OFFSET = float(os.getenv("THRESHOLD_LARGE_GROUP_OFFSET", "8.0"))  # Added for 11+ faces
+
+# Ambiguity detection margin (rejects if best/second-best are too close)
+AMBIGUITY_MARGIN = float(os.getenv("AMBIGUITY_MARGIN", "3.0"))
 
 # Model performance configurations
 MODEL_CONFIGS = {
@@ -83,6 +122,56 @@ MODEL_CONFIGS = {
     "GhostFaceNet": {"threshold": 19.0, "embedding_size": 512},
     "SFace": {"threshold": 12.0, "embedding_size": 128}
 }
+
+# ===== ACCURACY IMPROVEMENT SETTINGS =====
+
+# Ensemble recognition
+ENABLE_ENSEMBLE_RECOGNITION = os.getenv("ENABLE_ENSEMBLE_RECOGNITION", "false").lower() == "true"
+ENSEMBLE_MODELS_STRING = os.getenv("ENSEMBLE_MODELS", "ArcFace:0.45,Facenet512:0.35,SFace:0.20")
+
+# Parse ensemble models configuration
+ENSEMBLE_MODELS_CONFIG = {}
+if ENABLE_ENSEMBLE_RECOGNITION and ENSEMBLE_MODELS_STRING:
+    for model_config in ENSEMBLE_MODELS_STRING.split(','):
+        if ':' in model_config:
+            model_name, weight = model_config.strip().split(':')
+            model_name = model_name.strip()
+            if model_name in MODEL_CONFIGS:
+                ENSEMBLE_MODELS_CONFIG[model_name] = {
+                    'weight': float(weight),
+                    'threshold': MODEL_CONFIGS[model_name]['threshold']
+                }
+
+# Advanced preprocessing
+ENABLE_FACE_ALIGNMENT = os.getenv("ENABLE_FACE_ALIGNMENT", "true").lower() == "true"
+ENABLE_ILLUMINATION_NORMALIZATION = os.getenv("ENABLE_ILLUMINATION_NORMALIZATION", "true").lower() == "true"
+ENABLE_SHARPNESS_ENHANCEMENT = os.getenv("ENABLE_SHARPNESS_ENHANCEMENT", "true").lower() == "true"
+ENABLE_NOISE_REDUCTION = os.getenv("ENABLE_NOISE_REDUCTION", "true").lower() == "true"
+ENABLE_SUPER_RESOLUTION = os.getenv("ENABLE_SUPER_RESOLUTION", "true").lower() == "true"
+
+# Quality filtering
+ENABLE_QUALITY_FILTERING = os.getenv("ENABLE_QUALITY_FILTERING", "true").lower() == "true"
+MIN_FACE_QUALITY_SCORE = float(os.getenv("MIN_FACE_QUALITY_SCORE", "0.4"))
+MIN_SHARPNESS_THRESHOLD = float(os.getenv("MIN_SHARPNESS_THRESHOLD", "50.0"))
+REJECT_BLURRY_FACES = os.getenv("REJECT_BLURRY_FACES", "true").lower() == "true"
+REJECT_OCCLUDED_FACES = os.getenv("REJECT_OCCLUDED_FACES", "true").lower() == "true"
+
+# Data augmentation
+ENABLE_DATA_AUGMENTATION = os.getenv("ENABLE_DATA_AUGMENTATION", "true").lower() == "true"
+AUGMENTATION_VARIATIONS = int(os.getenv("AUGMENTATION_VARIATIONS", "5"))
+
+# Confidence thresholds
+MIN_RECOGNITION_CONFIDENCE = float(os.getenv("MIN_RECOGNITION_CONFIDENCE", "0.50"))
+HIGH_CONFIDENCE_THRESHOLD = float(os.getenv("HIGH_CONFIDENCE_THRESHOLD", "0.80"))
+
+# Advanced detection
+ENABLE_MULTI_DETECTOR_FALLBACK = os.getenv("ENABLE_MULTI_DETECTOR_FALLBACK", "true").lower() == "true"
+DETECTOR_FALLBACK_SEQUENCE = os.getenv("DETECTOR_FALLBACK_SEQUENCE", "mtcnn,retinaface,mediapipe,opencv").split(',')
+
+# Logging
+LOG_QUALITY_METRICS = os.getenv("LOG_QUALITY_METRICS", "true").lower() == "true"
+LOG_ENSEMBLE_DECISIONS = os.getenv("LOG_ENSEMBLE_DECISIONS", "true").lower() == "true"
+SAVE_PROBLEMATIC_FACES = os.getenv("SAVE_PROBLEMATIC_FACES", "false").lower() == "true"
 
 # Face detector backends configuration
 DETECTOR_CONFIGS = {

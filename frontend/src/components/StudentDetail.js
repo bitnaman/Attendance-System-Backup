@@ -106,9 +106,26 @@ export default function StudentDetail({ studentId, onClose }) {
 
   const getAttendanceRate = () => {
     if (!attendanceStats) return 0;
+    // Use effective_attendance_rate which includes approved leave sessions
+    if (attendanceStats.effective_attendance_rate !== undefined) {
+      return Math.round(attendanceStats.effective_attendance_rate);
+    }
+    // Fallback to raw calculation
     const total = attendanceStats.total_records || 0;
     const present = attendanceStats.present_records || 0;
     return total > 0 ? Math.round((present / total) * 100) : 0;
+  };
+
+  const getApprovedLeaveSessions = () => {
+    if (!attendanceStats) return 0;
+    return attendanceStats.approved_leave_sessions || 0;
+  };
+
+  const getAdjustedAbsent = () => {
+    if (!attendanceStats) return 0;
+    return attendanceStats.adjusted_absent !== undefined 
+      ? attendanceStats.adjusted_absent 
+      : (attendanceStats.absent_records || 0);
   };
 
   if (loading) {
@@ -336,7 +353,12 @@ export default function StudentDetail({ studentId, onClose }) {
                       <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1976d2' }}>
                         {getAttendanceRate()}%
                       </div>
-                      <div style={{ color: '#666' }}>Attendance Rate</div>
+                      <div style={{ color: '#666' }}>Effective Attendance</div>
+                      {getApprovedLeaveSessions() > 0 && (
+                        <div style={{ fontSize: 11, color: '#888', marginTop: 4 }}>
+                          (includes {getApprovedLeaveSessions()} leave sessions)
+                        </div>
+                      )}
                     </div>
                     <div style={{ 
                       padding: 20, 
@@ -356,9 +378,14 @@ export default function StudentDetail({ studentId, onClose }) {
                       textAlign: 'center' 
                     }}>
                       <div style={{ fontSize: 24, fontWeight: 'bold', color: '#c62828' }}>
-                        {attendanceStats.absent_records || 0}
+                        {getAdjustedAbsent()}
                       </div>
-                      <div style={{ color: '#666' }}>Absent</div>
+                      <div style={{ color: '#666' }}>Adjusted Absent</div>
+                      {getApprovedLeaveSessions() > 0 && (
+                        <div style={{ fontSize: 11, color: '#888', marginTop: 4 }}>
+                          ({attendanceStats.absent_records || 0} raw - {getApprovedLeaveSessions()} leave)
+                        </div>
+                      )}
                     </div>
                     <div style={{ 
                       padding: 20, 
@@ -367,9 +394,12 @@ export default function StudentDetail({ studentId, onClose }) {
                       textAlign: 'center' 
                     }}>
                       <div style={{ fontSize: 24, fontWeight: 'bold', color: '#ef6c00' }}>
-                        {leaveRecords.length}
+                        {getApprovedLeaveSessions()}
                       </div>
-                      <div style={{ color: '#666' }}>Medical Leaves</div>
+                      <div style={{ color: '#666' }}>Leave Sessions</div>
+                      <div style={{ fontSize: 11, color: '#888', marginTop: 4 }}>
+                        ({leaveRecords.length} leave records)
+                      </div>
                     </div>
                   </div>
                 </div>

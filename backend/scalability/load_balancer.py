@@ -205,8 +205,7 @@ class ResourceOptimizer:
         self.cpu_threshold = 0.8  # 80% CPU usage
         self.optimization_strategies = {
             'memory': self._optimize_memory,
-            'cpu': self._optimize_cpu,
-            'gpu': self._optimize_gpu
+            'cpu': self._optimize_cpu
         }
     
     def analyze_resource_usage(self) -> Dict[str, float]:
@@ -251,12 +250,6 @@ class ResourceOptimizer:
         # Reduce concurrent processing
         # Use more efficient algorithms
         logger.info("Applied CPU optimization")
-    
-    async def _optimize_gpu(self):
-        """Optimize GPU usage"""
-        # Manage GPU memory
-        # Use mixed precision
-        logger.info("Applied GPU optimization")
 
 class DistributedProcessing:
     """Distributed processing system for large-scale operations"""

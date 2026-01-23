@@ -365,6 +365,247 @@ async def mark_attendance(
                 logger.warning(f"Failed to clean up temporary file {temp_file_path}: {cleanup_error}")
 
 
+# ============================================================================
+# Preview and Confirm Flow for Single Photo Attendance
+# ============================================================================
+
+@router.post("/preview")
+async def preview_attendance(
+    session_name: str = Form(...),
+    class_id: int = Form(...),
+    subject_id: Optional[int] = Form(None),
+    photo: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    face_recognizer = Depends(get_face_recognizer)
+):
+    """
+    Preview attendance before final confirmation.
+    Processes the photo and returns identified students along with all class students.
+    Does NOT save attendance records - use /confirm to finalize.
+    """
+    if not photo.content_type or not photo.content_type.startswith('image/'):
+        raise HTTPException(status_code=400, detail="File must be an image")
+    
+    # Validate class exists
+    class_obj = db.query(Class).filter(Class.id == class_id).first()
+    if not class_obj:
+        raise HTTPException(status_code=400, detail="Invalid class ID")
+    
+    # Load students for the specific class
+    logger.info(f"Loading students for class {class_obj.name} {class_obj.section}")
+    face_recognizer.load_class_students(db, class_id)
+    
+    # Save uploaded photo using storage manager
+    try:
+        photo_url = await storage_manager.save_attendance_photo(photo, session_name)
+        logger.info(f"Attendance photo saved: {photo_url}")
+    except Exception as e:
+        logger.error(f"Failed to save attendance photo: {e}")
+        raise HTTPException(status_code=500, detail="Failed to save photo")
+
+    # For face recognition, we need a local file path
+    photo_path_for_processing = None
+    temp_file_path = None
+    
+    try:
+        if storage_manager.storage_type == "s3":
+            # Download from S3 for processing
+            import tempfile
+            import requests
+            logger.info(f"Downloading S3 photo for processing: {photo_url}")
+            response = requests.get(photo_url)
+            response.raise_for_status()
+            
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.jpg')
+            temp_file.write(response.content)
+            temp_file.close()
+            photo_path_for_processing = temp_file.name
+            temp_file_path = temp_file.name
+        else:
+            # For local storage, convert URL back to file path
+            from config import STATIC_DIR
+            if "/static/" in photo_url:
+                relative_path = photo_url.split("/static/")[1]
+                photo_path_for_processing = str(STATIC_DIR / relative_path)
+            else:
+                raise ValueError(f"Invalid local photo URL format: {photo_url}")
+
+        # Verify file exists
+        if not os.path.exists(photo_path_for_processing):
+            raise FileNotFoundError(f"Photo file not found: {photo_path_for_processing}")
+
+        # Process photo with enhanced recognition
+        try:
+            processing_result = face_recognizer.process_class_photo_enhanced(photo_path_for_processing, class_id)
+            logger.info(f"✅ Enhanced recognition completed: {processing_result.get('method', 'unknown')}")
+        except Exception as e:
+            logger.warning(f"Enhanced recognition failed: {e}, falling back to standard")
+            processing_result = face_recognizer.process_class_photo(photo_path_for_processing, class_id)
+        
+        if "error" in processing_result:
+            raise HTTPException(status_code=500, detail=processing_result["error"])
+
+        # Get all class students
+        class_students = db.query(Student).filter(
+            Student.class_id == class_id,
+            Student.is_active == True
+        ).order_by(Student.roll_no).all()
+
+        # Build identified students set with confidence
+        identified_map = {}
+        for match in processing_result.get("identified_students", []):
+            sid = int(match["student_id"])
+            if sid not in identified_map or match["confidence"] > identified_map[sid]["confidence"]:
+                identified_map[sid] = {
+                    "student_id": sid,
+                    "name": match.get("name", ""),
+                    "confidence": float(match.get("confidence", 0.0)),
+                }
+
+        # Build student list with detection status
+        all_students = []
+        for student in class_students:
+            is_detected = student.id in identified_map
+            confidence = identified_map[student.id]["confidence"] if is_detected else 0.0
+            all_students.append({
+                "id": student.id,
+                "name": student.name,
+                "roll_no": student.roll_no,
+                "prn": student.prn,
+                "is_detected": is_detected,
+                "confidence": confidence,
+                "photo_url": f"/static/dataset/{student.name.replace(' ', '_')}_{student.roll_no}/face.jpg" if student.photo_path else None
+            })
+
+        # Generate preview candidate ID
+        import uuid
+        candidate_id = str(uuid.uuid4())
+        
+        # Store preview data
+        _preview_store[candidate_id] = {
+            "session_name": session_name,
+            "class_id": class_id,
+            "subject_id": subject_id,
+            "photo_url": photo_url,
+            "processing_result": safe_json_serialize(processing_result),
+            "identified_map": identified_map,
+            "created_at": datetime.utcnow().isoformat(),
+        }
+
+        return {
+            "success": True,
+            "preview_id": candidate_id,
+            "session_name": session_name,
+            "class_id": class_id,
+            "class_name": f"{class_obj.name} {class_obj.section}",
+            "subject_id": subject_id,
+            "photo_url": photo_url,
+            "total_faces_detected": processing_result.get("total_faces_detected", 0),
+            "identified_count": len(identified_map),
+            "total_students": len(class_students),
+            "all_students": all_students,
+            "processing_result": safe_json_serialize(processing_result)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Preview processing error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="An unexpected error occurred during photo processing.")
+    finally:
+        # Clean up temporary file
+        if temp_file_path and os.path.exists(temp_file_path):
+            try:
+                os.unlink(temp_file_path)
+            except Exception as cleanup_error:
+                logger.warning(f"Failed to clean up temp file: {cleanup_error}")
+
+
+class ConfirmAttendancePayload(BaseModel):
+    preview_id: str
+    present_student_ids: List[int]
+    absent_student_ids: Optional[List[int]] = None
+
+
+@router.post("/confirm")
+async def confirm_attendance(payload: ConfirmAttendancePayload, db: Session = Depends(get_db)):
+    """
+    Confirm and save attendance after preview.
+    Takes the preview_id and final list of present student IDs (after manual adjustments).
+    """
+    data = _preview_store.get(payload.preview_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Preview not found or expired. Please process the photo again.")
+
+    class_id = data["class_id"]
+    subject_id = data.get("subject_id")
+    session_name = data["session_name"]
+    photo_url = data["photo_url"]
+    processing_result = data.get("processing_result", {})
+    identified_map = data.get("identified_map", {})
+
+    # Get class info
+    class_obj = db.query(Class).filter(Class.id == class_id).first()
+    if not class_obj:
+        raise HTTPException(status_code=400, detail="Class not found")
+
+    # Create attendance session
+    session = AttendanceSession(
+        session_name=session_name,
+        photo_path=photo_url,
+        class_id=class_id,
+        subject_id=subject_id,
+        total_detected=processing_result.get("total_faces_detected", 0),
+        total_present=len(payload.present_student_ids),
+        confidence_avg=float(sum(m["confidence"] for m in identified_map.values()) / max(1, len(identified_map)))
+    )
+
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+
+    # Build present set
+    present_set = set(payload.present_student_ids)
+
+    # Get all class students
+    class_students = db.query(Student).filter(
+        Student.class_id == class_id,
+        Student.is_active == True
+    ).all()
+
+    # Create attendance records
+    for student in class_students:
+        is_present = student.id in present_set
+        confidence = identified_map.get(student.id, {}).get("confidence", 0.0) if is_present else 0.0
+        
+        record = AttendanceRecord(
+            student_id=student.id,
+            session_id=session.id,
+            is_present=is_present,
+            confidence=float(confidence),
+            detection_details=json.dumps({})
+        )
+        db.add(record)
+
+    db.commit()
+
+    # Cleanup preview
+    _preview_store.pop(payload.preview_id, None)
+
+    logger.info(f"Attendance confirmed for {class_obj.name} {class_obj.section}: {len(present_set)}/{len(class_students)} present")
+
+    return {
+        "success": True,
+        "session_id": session.id,
+        "session_name": session_name,
+        "class_id": class_id,
+        "class_name": f"{class_obj.name} {class_obj.section}",
+        "present_count": len(present_set),
+        "absent_count": len(class_students) - len(present_set),
+        "total_students": len(class_students)
+    }
+
+
 @router.get("/sessions")
 async def get_attendance_sessions(
     class_id: Optional[int] = Query(None),
@@ -380,8 +621,23 @@ async def get_attendance_sessions(
         
     sessions = query.order_by(AttendanceSession.created_at.desc()).offset(offset).limit(limit).all()
     
-    return [
-        {
+    result = []
+    for s in sessions:
+        # Get total students in the class at time of query
+        total_students = db.query(Student).filter(
+            Student.class_id == s.class_id,
+            Student.is_active == True
+        ).count()
+        
+        # Also count from attendance records for this session (more accurate)
+        records_count = db.query(AttendanceRecord).filter(
+            AttendanceRecord.session_id == s.id
+        ).count()
+        
+        # Use records count if available (reflects actual class size at time of session)
+        actual_total = records_count if records_count > 0 else total_students
+        
+        result.append({
             "id": s.id,
             "session_name": s.session_name,
             "class_id": s.class_id,
@@ -389,13 +645,15 @@ async def get_attendance_sessions(
             "class_section": s.class_obj.section,
             "total_detected": s.total_detected,
             "total_present": s.total_present,
+            "total_students": actual_total,
+            "total_absent": actual_total - s.total_present,
             "confidence_avg": s.confidence_avg,
             "created_at": s.created_at.isoformat() if s.created_at else None,
             "date": s.created_at.isoformat() if s.created_at else None,  # compatibility
             "photo_url": f"/static/attendance_photos/{os.path.basename(s.photo_path)}" if s.photo_path else None
-        }
-        for s in sessions
-    ]
+        })
+    
+    return result
 
 
 @router.get("/records")
@@ -435,7 +693,7 @@ async def get_attendance_records(
             "roll_no": r.student.roll_no,
             "prn": r.student.prn,
             "seat_no": r.student.seat_no,
-            "status": r.is_present,
+            "status": "present" if r.is_present else "absent",
             "confidence": r.confidence,
             "detection_details": r.detection_details,
             "created_at": r.created_at.isoformat() if r.created_at else None
@@ -677,16 +935,47 @@ async def export_student_attendance(
             story.append(student_table)
             story.append(Spacer(1, 20))
             
-            # Attendance summary
+            # Attendance summary - with leave-aware calculation
+            from database import LeaveRecord
+            
             total_sessions = len(records)
             present_sessions = sum(1 for r in records if r.is_present)
-            attendance_rate = (present_sessions / max(1, total_sessions)) * 100
+            absent_sessions = total_sessions - present_sessions
+            
+            # Get approved leave sessions for this student within the date range
+            leave_q = db.query(LeaveRecord).filter(
+                LeaveRecord.student_id == student_id,
+                LeaveRecord.is_approved == True
+            )
+            if date_from:
+                leave_q = leave_q.filter(LeaveRecord.leave_date >= _parse(date_from))
+            if date_to:
+                leave_q = leave_q.filter(LeaveRecord.leave_date <= _parse(date_to))
+            
+            approved_leaves = leave_q.all()
+            approved_leave_sessions = sum(
+                leave.sessions_count if hasattr(leave, 'sessions_count') and leave.sessions_count else 1 
+                for leave in approved_leaves
+            )
+            
+            # Raw attendance rate (without leave adjustment)
+            raw_attendance_rate = (present_sessions / max(1, total_sessions)) * 100
+            
+            # Effective attendance rate (with approved leaves counted as present)
+            effective_present = min(present_sessions + approved_leave_sessions, total_sessions)
+            effective_attendance_rate = (effective_present / max(1, total_sessions)) * 100
+            
+            # Adjusted absent count
+            adjusted_absent = max(0, absent_sessions - approved_leave_sessions)
             
             summary_data = [
                 ['Total Sessions', str(total_sessions)],
                 ['Present', str(present_sessions)],
-                ['Absent', str(total_sessions - present_sessions)],
-                ['Attendance Rate', f"{attendance_rate:.1f}%"]
+                ['Raw Absent', str(absent_sessions)],
+                ['Approved Leave Sessions', str(approved_leave_sessions)],
+                ['Adjusted Absent', str(adjusted_absent)],
+                ['Raw Attendance Rate', f"{raw_attendance_rate:.1f}%"],
+                ['Effective Attendance Rate', f"{effective_attendance_rate:.1f}%"]
             ]
             
             summary_table = Table(summary_data, colWidths=[2*inch, 2*inch])
@@ -880,8 +1169,10 @@ async def get_student_attendance_stats(
     student_id: int,
     db: Session = Depends(get_db)
 ):
-    """Get attendance statistics for a specific student"""
+    """Get attendance statistics for a specific student with leave-aware calculation"""
     try:
+        from database import LeaveRecord
+        
         # Validate student exists
         student = db.query(Student).filter(Student.id == student_id).first()
         if not student:
@@ -893,13 +1184,35 @@ async def get_student_attendance_stats(
         present_records = records_query.filter(AttendanceRecord.is_present == True).count()
         absent_records = total_records - present_records
         
+        # Get approved leave sessions for this student
+        approved_leaves = db.query(LeaveRecord).filter(
+            LeaveRecord.student_id == student_id,
+            LeaveRecord.is_approved == True
+        ).all()
+        
+        # Calculate total approved leave sessions
+        approved_leave_sessions = sum(
+            leave.sessions_count if hasattr(leave, 'sessions_count') and leave.sessions_count else 1 
+            for leave in approved_leaves
+        )
+        
+        # Calculate adjusted absent (absent - approved leave sessions, min 0)
+        adjusted_absent = max(0, absent_records - approved_leave_sessions)
+        
         # Get recent sessions
         recent_sessions = db.query(AttendanceSession).join(AttendanceRecord).filter(
             AttendanceRecord.student_id == student_id
         ).order_by(AttendanceSession.created_at.desc()).limit(5).all()
         
-        # Calculate attendance rate
+        # Calculate raw attendance rate (without leave adjustment)
         attendance_rate = (present_records / max(1, total_records)) * 100 if total_records > 0 else 0
+        
+        # Calculate effective attendance rate (with approved leaves counted as present)
+        # Formula: (Present + Approved Leave Sessions) / Total × 100
+        effective_present = present_records + approved_leave_sessions
+        effective_attendance_rate = (effective_present / max(1, total_records)) * 100 if total_records > 0 else 0
+        # Cap at 100%
+        effective_attendance_rate = min(100.0, effective_attendance_rate)
         
         # Get monthly breakdown (last 6 months)
         from datetime import datetime, timedelta
@@ -917,12 +1230,29 @@ async def get_student_attendance_stats(
             
             month_total = month_records.count()
             month_present = month_records.filter(AttendanceRecord.is_present == True).count()
-            month_rate = (month_present / max(1, month_total)) * 100 if month_total > 0 else 0
+            
+            # Get approved leave sessions for this month
+            month_leaves = db.query(LeaveRecord).filter(
+                LeaveRecord.student_id == student_id,
+                LeaveRecord.is_approved == True,
+                LeaveRecord.leave_date >= month_start,
+                LeaveRecord.leave_date < month_end
+            ).all()
+            month_leave_sessions = sum(
+                leave.sessions_count if hasattr(leave, 'sessions_count') and leave.sessions_count else 1 
+                for leave in month_leaves
+            )
+            
+            # Calculate effective rate for this month
+            month_effective_present = month_present + month_leave_sessions
+            month_rate = (month_effective_present / max(1, month_total)) * 100 if month_total > 0 else 0
+            month_rate = min(100.0, month_rate)
             
             monthly_stats.append({
                 "month": month_start.strftime('%Y-%m'),
                 "total": month_total,
                 "present": month_present,
+                "leave_sessions": month_leave_sessions,
                 "rate": round(month_rate, 1)
             })
         
@@ -933,7 +1263,10 @@ async def get_student_attendance_stats(
             "total_records": total_records,
             "present_records": present_records,
             "absent_records": absent_records,
+            "adjusted_absent": adjusted_absent,
+            "approved_leave_sessions": approved_leave_sessions,
             "attendance_rate": round(attendance_rate, 1),
+            "effective_attendance_rate": round(effective_attendance_rate, 1),
             "recent_sessions": [
                 {
                     "id": s.id,

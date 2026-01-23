@@ -87,11 +87,18 @@ class EmbeddingIntegration:
             with open(metadata_path, 'w') as f:
                 json.dump(metadata, f, indent=2)
             
-            # Copy first image as face.jpg
+            # Copy first image as face.jpg (only if source and destination are different)
             face_photo_path = os.path.join(output_dir, "face.jpg")
             if image_paths and os.path.exists(image_paths[0]):
                 import shutil
-                shutil.copy(image_paths[0], face_photo_path)
+                source_path = os.path.abspath(image_paths[0])
+                dest_path = os.path.abspath(face_photo_path)
+                
+                # Only copy if source and destination are different files
+                if source_path != dest_path:
+                    shutil.copy(source_path, dest_path)
+                else:
+                    logger.debug(f"Source and destination are the same file, skipping copy: {source_path}")
             
             logger.info(f"🎯 Enhanced embedding saved for {student_name} (confidence: {result['confidence_score']:.3f})")
             
@@ -185,7 +192,7 @@ class EmbeddingIntegration:
     
     def upgrade_student_embedding(self, student_id: int, db) -> bool:
         """
-        Upgrade a student's embedding from standard to enhanced system
+        Upgrade/regenerate a student's embedding using current .env settings
         
         Args:
             student_id: Student ID
@@ -194,22 +201,14 @@ class EmbeddingIntegration:
         Returns:
             True if upgrade was successful
         """
-        if not self.enhanced_available:
-            logger.warning("Enhanced system not available for upgrade")
-            return False
-        
         try:
             from database import Student
+            from config import FACE_RECOGNITION_MODEL, FACE_DETECTOR_BACKEND
             
             student = db.query(Student).filter(Student.id == student_id).first()
             if not student:
                 logger.error(f"Student {student_id} not found")
                 return False
-            
-            # Check if already enhanced
-            if student.embedding_variants_path and os.path.exists(student.embedding_variants_path):
-                logger.info(f"Student {student_id} already has enhanced embeddings")
-                return True
             
             # Get original images - use absolute path
             student_dir = os.path.join(os.getcwd(), f"static/dataset/{student.name.replace(' ', '_')}_{student.roll_no}")
@@ -246,22 +245,42 @@ class EmbeddingIntegration:
                 logger.error(f"No images found for student {student_id}")
                 return False
             
-            # Generate enhanced embeddings
-            result = self._generate_enhanced_embeddings(
-                image_paths=image_paths,
-                student_name=student.name,
-                student_roll_no=student.roll_no
-            )
+            logger.info(f"🔄 Regenerating embedding for {student.name} using model={FACE_RECOGNITION_MODEL}, detector={FACE_DETECTOR_BACKEND}")
             
-            # Update database
-            student.embedding_variants_path = result['variants_path']
-            student.embedding_metadata_path = result['metadata_path']
-            student.embedding_confidence = result['confidence_score']
+            # Generate embeddings - use enhanced if available, otherwise standard
+            if self.enhanced_available:
+                result = self._generate_enhanced_embeddings(
+                    image_paths=image_paths,
+                    student_name=student.name,
+                    student_roll_no=student.roll_no
+                )
+                
+                # Update database with enhanced embedding info
+                student.face_encoding_path = result['embedding_path']
+                student.embedding_variants_path = result.get('variants_path')
+                student.embedding_metadata_path = result.get('metadata_path')
+                student.embedding_confidence = result.get('confidence_score', 0.8)
+                student.has_enhanced_embeddings = True
+            else:
+                result = self._generate_standard_embeddings(
+                    image_paths=image_paths,
+                    student_name=student.name,
+                    student_roll_no=student.roll_no
+                )
+                
+                # Update database with standard embedding info
+                student.face_encoding_path = result['embedding_path']
+                student.embedding_confidence = result.get('confidence_score', 0.8)
+                student.has_enhanced_embeddings = False
+            
+            # Always update model tracking
+            student.embedding_model = FACE_RECOGNITION_MODEL
+            student.embedding_detector = FACE_DETECTOR_BACKEND
             student.adaptive_threshold = 0.6  # Default adaptive threshold
             
             db.commit()
             
-            logger.info(f"✅ Successfully upgraded student {student_id} to enhanced embeddings")
+            logger.info(f"✅ Successfully upgraded student {student_id} with model={FACE_RECOGNITION_MODEL}, detector={FACE_DETECTOR_BACKEND}")
             return True
             
         except Exception as e:

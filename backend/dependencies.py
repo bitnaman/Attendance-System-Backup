@@ -19,7 +19,7 @@ _face_recognizer: ClassBasedFaceRecognizer = None
 
 def get_db() -> Generator[Session, None, None]:
     """
-    Dependency to get PostgreSQL database session.
+    Dependency to get SQLite database session.
     """
     db = SessionLocal()
     try:
@@ -35,7 +35,7 @@ def initialize_face_recognizer() -> ClassBasedFaceRecognizer:
     """
     global _face_recognizer
     if _face_recognizer is None:
-        logger.info("Initializing PostgreSQL-compatible face recognizer...")
+        logger.info("Initializing SQLite-compatible face recognizer...")
         _face_recognizer = ClassBasedFaceRecognizer()
         logger.info("Face recognizer initialized successfully!")
     return _face_recognizer

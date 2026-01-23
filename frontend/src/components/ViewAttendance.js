@@ -1,5 +1,17 @@
 import React, { useState, useEffect } from 'react';
+import {
+  SessionFilters,
+  SessionCard,
+  SessionListItem,
+  SessionDetails,
+  calculateAttendanceRate,
+  formatDate
+} from './attendance';
 
+/**
+ * ViewAttendance - Main component for viewing attendance sessions
+ * Uses modular sub-components for better maintainability
+ */
 export default function ViewAttendance({
   loading,
   sessions,
@@ -14,7 +26,7 @@ export default function ViewAttendance({
   const [dateFilter, setDateFilter] = useState('');
   const [sortBy, setSortBy] = useState('date');
   const [sortOrder, setSortOrder] = useState('desc');
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+  const [viewMode, setViewMode] = useState('grid');
 
   // Fetch classes for filtering
   useEffect(() => {
@@ -69,8 +81,8 @@ export default function ViewAttendance({
         bValue = b.session_name.toLowerCase();
         break;
       case 'attendance':
-        aValue = calculateAttendanceRate(a.total_present, a.total_detected);
-        bValue = calculateAttendanceRate(b.total_present, b.total_detected);
+        aValue = calculateAttendanceRate(a.total_present, a.total_students || a.total_detected);
+        bValue = calculateAttendanceRate(b.total_present, b.total_students || b.total_detected);
         break;
       default:
         aValue = a[sortBy];
@@ -84,131 +96,34 @@ export default function ViewAttendance({
     }
   });
 
-  // Helper function to calculate attendance rate
-  const calculateAttendanceRate = (present, total) => {
-    if (!total || total === 0) return 0;
-    return Math.round((present / total) * 100);
-  };
+  // Get selected session object
+  const selectedSessionData = sessions.find(s => s.id === selectedSession);
 
-  // Helper function to format date
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return {
-      date: date.toLocaleDateString(),
-      time: date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
+  // Clear all filters
+  const clearFilters = () => {
+    setSelectedClass('');
+    setSearchTerm('');
+    setDateFilter('');
   };
 
   return (
     <div className="view-attendance">
       {/* Filters Section */}
-      <div className="filters-section">
-        <div className="filters-container">
-          {/* First Row - Main Filters */}
-          <div className="filters-row">
-            <div className="filter-group">
-              <label>
-                <span className="filter-icon">🏫</span>
-                Class
-              </label>
-              <select
-                value={selectedClass}
-                onChange={(e) => setSelectedClass(e.target.value)}
-                className="filter-select"
-              >
-                <option value="">All Classes</option>
-                {classes.map(cls => (
-                  <option key={cls.id} value={cls.id}>
-                    {cls.name} - Section {cls.section}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="filter-group">
-              <label>
-                <span className="filter-icon">🔍</span>
-                Search
-              </label>
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search sessions..."
-                className="filter-input"
-              />
-            </div>
-
-            <div className="filter-group">
-              <label>
-                <span className="filter-icon">📅</span>
-                Date
-              </label>
-              <input
-                type="date"
-                value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
-                className="filter-input"
-              />
-            </div>
-          </div>
-
-          {/* Second Row - Sort & View Controls */}
-          <div className="filters-row">
-            <div className="filter-group">
-              <label>
-                <span className="filter-icon">📊</span>
-                Sort By
-              </label>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="filter-select"
-              >
-                <option value="date">Date</option>
-                <option value="name">Session Name</option>
-                <option value="attendance">Attendance Rate</option>
-              </select>
-            </div>
-
-            <div className="filter-group">
-              <label>
-                <span className="filter-icon">🔄</span>
-                Order
-              </label>
-              <select
-                value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value)}
-                className="filter-select"
-              >
-                <option value="desc">Descending</option>
-                <option value="asc">Ascending</option>
-              </select>
-            </div>
-
-            <div className="filter-group">
-              <label>
-                <span className="filter-icon">👁️</span>
-                View Mode
-              </label>
-              <div className="view-mode-buttons">
-                <button
-                  className={`view-mode-btn ${viewMode === 'grid' ? 'active' : ''}`}
-                  onClick={() => setViewMode('grid')}
-                >
-                  ⊞ Grid
-                </button>
-                <button
-                  className={`view-mode-btn ${viewMode === 'list' ? 'active' : ''}`}
-                  onClick={() => setViewMode('list')}
-                >
-                  ☰ List
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <SessionFilters
+        classes={classes}
+        selectedClass={selectedClass}
+        setSelectedClass={setSelectedClass}
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+        dateFilter={dateFilter}
+        setDateFilter={setDateFilter}
+        sortBy={sortBy}
+        setSortBy={setSortBy}
+        sortOrder={sortOrder}
+        setSortOrder={setSortOrder}
+        viewMode={viewMode}
+        setViewMode={setViewMode}
+      />
 
       {loading && (
         <div className="loading-state">
@@ -237,11 +152,7 @@ export default function ViewAttendance({
                 <p>No attendance sessions match your current filters.</p>
                 <button 
                   className="clear-filters-btn"
-                  onClick={() => {
-                    setSelectedClass('');
-                    setSearchTerm('');
-                    setDateFilter('');
-                  }}
+                  onClick={clearFilters}
                 >
                   Clear Filters
                 </button>
@@ -250,53 +161,16 @@ export default function ViewAttendance({
               <div className={`sessions-container ${viewMode}`}>
                 {viewMode === 'grid' ? (
                   <div className="sessions-grid">
-                    {sortedSessions.map(session => {
-                      const dateTime = formatDate(session.date || session.created_at);
-                      const attendanceRate = calculateAttendanceRate(session.total_present, session.total_detected);
-                      
-                      return (
-                        <div
-                          key={session.id}
-                          className={`session-card ${selectedSession === session.id ? 'selected' : ''}`}
-                          onClick={() => onSelectSession(session.id)}
-                        >
-                          <div className="session-header">
-                            <div className="session-title">
-                              <h4>{session.session_name}</h4>
-                              <p className="session-subtitle">{session.class_name || 'Unknown Class'}</p>
-                            </div>
-                            <div className="session-date">
-                              <div className="date">{dateTime.date}</div>
-                              <div className="time">{dateTime.time}</div>
-                            </div>
-                          </div>
-                          
-                          <div className="session-body">
-                            <div className="session-stats">
-                              <div className="stat-item">
-                                <div className="stat-number present">{session.total_present || 0}</div>
-                                <div className="stat-label">Present</div>
-                              </div>
-                              <div className="stat-item">
-                                <div className="stat-number absent">{session.total_detected - session.total_present || 0}</div>
-                                <div className="stat-label">Absent</div>
-                              </div>
-                              <div className="stat-item">
-                                <div className={`stat-number rate ${attendanceRate >= 80 ? 'good' : attendanceRate >= 60 ? 'warning' : 'poor'}`}>
-                                  {attendanceRate}%
-                                </div>
-                                <div className="stat-label">Rate</div>
-                              </div>
-                            </div>
-                            
-                            <div className="session-actions">
-                              <button className="action-btn view-btn" title="View Details">👁️</button>
-                              <button className="action-btn export-btn" title="Export Data">📊</button>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
+                    {sortedSessions.map(session => (
+                      <SessionCard
+                        key={session.id}
+                        session={session}
+                        isSelected={selectedSession === session.id}
+                        onSelect={onSelectSession}
+                        formatDate={formatDate}
+                        calculateAttendanceRate={calculateAttendanceRate}
+                      />
+                    ))}
                   </div>
                 ) : (
                   <div className="sessions-list">
@@ -309,41 +183,16 @@ export default function ViewAttendance({
                       <div className="col-rate">Rate</div>
                       <div className="col-actions">Actions</div>
                     </div>
-                    {sortedSessions.map(session => {
-                      const dateTime = formatDate(session.date || session.created_at);
-                      const attendanceRate = calculateAttendanceRate(session.total_present, session.total_detected);
-                      
-                      return (
-                        <div
-                          key={session.id}
-                          className={`list-item ${selectedSession === session.id ? 'selected' : ''}`}
-                          onClick={() => onSelectSession(session.id)}
-                        >
-                          <div className="col-name">
-                            <strong>{session.session_name}</strong>
-                            <small>{session.class_name || 'Unknown Class'}</small>
-                          </div>
-                          <div className="col-date">
-                            <div>{dateTime.date}</div>
-                            <small>{dateTime.time}</small>
-                          </div>
-                          <div className="col-class">{session.class_name || 'Unknown'}</div>
-                          <div className="col-present">
-                            <span className="stat-number present">{session.total_present || 0}</span>
-                          </div>
-                          <div className="col-absent">
-                            <span className="stat-number absent">{session.total_detected - session.total_present || 0}</span>
-                          </div>
-                          <div className={`col-rate ${attendanceRate >= 80 ? 'good' : attendanceRate >= 60 ? 'warning' : 'poor'}`}>
-                            <span className="stat-number rate">{attendanceRate}%</span>
-                          </div>
-                          <div className="col-actions">
-                            <button className="action-btn view-btn" title="View Details">👁️</button>
-                            <button className="action-btn export-btn" title="Export Data">📊</button>
-                          </div>
-                        </div>
-                      );
-                    })}
+                    {sortedSessions.map(session => (
+                      <SessionListItem
+                        key={session.id}
+                        session={session}
+                        isSelected={selectedSession === session.id}
+                        onSelect={onSelectSession}
+                        formatDate={formatDate}
+                        calculateAttendanceRate={calculateAttendanceRate}
+                      />
+                    ))}
                   </div>
                 )}
               </div>
@@ -351,107 +200,14 @@ export default function ViewAttendance({
           </div>
 
           {/* Session Details Section */}
-          {selectedSession && (
-            <div className="session-details-section">
-              <div className="section-header">
-                <h3>📊 Session Details</h3>
-                <button 
-                  className="close-details-btn"
-                  onClick={() => onSelectSession(null)}
-                >
-                  ✕ Close
-                </button>
-              </div>
-              
-              {(() => {
-                const session = sessions.find(s => s.id === selectedSession);
-                if (!session) return null;
-                
-                const sessionRecords = records.filter(record => record.session_id === selectedSession);
-                const dateTime = formatDate(session.date || session.created_at);
-                const attendanceRate = calculateAttendanceRate(session.total_present, session.total_detected);
-                
-                return (
-                  <div className="session-details">
-                    <div className="session-info">
-                      <div className="info-card">
-                        <h4>📋 Session Information</h4>
-                        <div className="info-grid">
-                          <div className="info-item">
-                            <span className="info-label">Session Name:</span>
-                            <span className="info-value">{session.session_name}</span>
-                          </div>
-                          <div className="info-item">
-                            <span className="info-label">Date:</span>
-                            <span className="info-value">{dateTime.date}</span>
-                          </div>
-                          <div className="info-item">
-                            <span className="info-label">Time:</span>
-                            <span className="info-value">{dateTime.time}</span>
-                          </div>
-                          <div className="info-item">
-                            <span className="info-label">Class:</span>
-                            <span className="info-value">{session.class_name || 'Unknown'}</span>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="info-card">
-                        <h4>📊 Attendance Summary</h4>
-                        <div className="summary-stats">
-                          <div className="summary-stat">
-                            <span className="stat-number present">{session.total_present || 0}</span>
-                            <span className="stat-label">Present</span>
-                          </div>
-                          <div className="summary-stat">
-                            <span className="stat-number absent">{session.total_detected - session.total_present || 0}</span>
-                            <span className="stat-label">Absent</span>
-                          </div>
-                          <div className="summary-stat">
-                            <span className="stat-number total">{session.total_detected || 0}</span>
-                            <span className="stat-label">Total</span>
-                          </div>
-                          <div className="summary-stat">
-                            <span className={`stat-number rate ${attendanceRate >= 80 ? 'good' : attendanceRate >= 60 ? 'warning' : 'poor'}`}>
-                              {attendanceRate}%
-                            </span>
-                            <span className="stat-label">Rate</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {sessionRecords.length > 0 && (
-                      <div className="records-section">
-                        <h4>👥 Student Records ({sessionRecords.length})</h4>
-                        <div className="records-table">
-                          <div className="table-header">
-                            <div className="col-student">Student Name</div>
-                            <div className="col-roll">Roll Number</div>
-                            <div className="col-status">Status</div>
-                            <div className="col-time">Time</div>
-                          </div>
-                          {sessionRecords.map(record => (
-                            <div key={record.id} className="table-row">
-                              <div className="col-student">
-                                <strong>{record.student_name}</strong>
-                              </div>
-                              <div className="col-roll">{record.roll_no}</div>
-                              <div className={`col-status ${record.status}`}>
-                                {record.status === 'present' ? '✅ Present' : '❌ Absent'}
-                              </div>
-                              <div className="col-time">
-                                {record.timestamp ? formatDate(record.timestamp).time : 'N/A'}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-            </div>
+          {selectedSession && selectedSessionData && (
+            <SessionDetails
+              session={selectedSessionData}
+              records={records}
+              onClose={() => onSelectSession(null)}
+              formatDate={formatDate}
+              calculateAttendanceRate={calculateAttendanceRate}
+            />
           )}
         </div>
       )}

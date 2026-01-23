@@ -19,8 +19,8 @@ sys.path.append(str(Path(__file__).parent / "backend"))
 from database import Student, AttendanceSession
 from config import DATABASE_URL, STATIC_DIR
 
-# Load environment variables
-load_dotenv("backend/.env")
+# Load environment variables from root .env (single source of truth)
+load_dotenv(Path(__file__).parent / ".env")
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

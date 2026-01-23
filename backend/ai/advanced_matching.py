@@ -11,6 +11,9 @@ import json
 import os
 from datetime import datetime, timedelta
 
+# Load threshold from environment
+from config import MIN_CONFIDENCE_THRESHOLD
+
 logger = logging.getLogger(__name__)
 
 class AdvancedFaceMatcher:
@@ -111,40 +114,57 @@ class AdvancedFaceMatcher:
             
             profile = self.student_profiles[student_id]
             
-            # Strategy 1: Primary embedding matching
+            # Strategy 1: Primary embedding matching (always available)
             primary_score = self._match_primary(query_embedding, profile)
             
-            # Strategy 2: Variant embedding matching
+            # Strategy 2: Variant embedding matching (only if variants exist)
             variant_score = self._match_variants(query_embedding, profile)
+            has_variants = len(profile.get('variants', [])) > 0
             
-            # Strategy 3: Ensemble matching
-            ensemble_score = self._match_ensemble(query_embedding, profile)
-            
-            # Calculate weighted final score
-            final_score = (
-                primary_score * self.strategies['primary']['weight'] +
-                variant_score * self.strategies['variants']['weight'] +
-                ensemble_score * self.strategies['ensemble']['weight']
-            )
+            # Calculate weighted final score - ONLY use available strategies
+            if has_variants:
+                # Full ensemble: primary (60%) + variants (30%) + ensemble (10%)
+                ensemble_score = self._match_ensemble(query_embedding, profile)
+                final_score = (
+                    primary_score * 0.6 +
+                    variant_score * 0.3 +
+                    ensemble_score * 0.1
+                )
+            else:
+                # No variants available - use primary score directly
+                # This is the common case for most students
+                final_score = primary_score
             
             # Apply adaptive threshold
             adaptive_threshold = self._get_adaptive_threshold(student_id, group_size)
             
-            # Calculate confidence
+            # Calculate confidence - now simplified to just use the score
             confidence = self._calculate_confidence(final_score, adaptive_threshold, profile)
             
-            # Apply temporal consistency
-            confidence = self._apply_temporal_consistency(student_id, confidence)
+            # Skip temporal consistency for simplicity (was causing issues)
+            # confidence = self._apply_temporal_consistency(student_id, confidence)
             
             # Adaptive decision threshold based on group size
-            # Individual photos (1 face): lower threshold for better detection
-            # Group photos (multiple faces): higher threshold to avoid false positives
+            # Use MIN_CONFIDENCE_THRESHOLD from .env as base (default 0.20)
+            base_threshold = MIN_CONFIDENCE_THRESHOLD
+            
+            # For group photos, we need to be MORE lenient, not stricter
+            # Reason: Group photos have lower quality faces due to distance, angle, lighting
             if group_size == 1:
-                decision_threshold = 0.25  # 25% for individual photos (more lenient)
-            elif group_size <= 5:
-                decision_threshold = 0.35  # 35% for small groups
+                decision_threshold = base_threshold + 0.05  # 0.25 for single face (can be stricter)
+            elif group_size <= 3:
+                decision_threshold = base_threshold  # 0.20 for tiny groups
+            elif group_size <= 6:
+                decision_threshold = base_threshold - 0.02  # 0.18 for small groups
+            elif group_size <= 10:
+                decision_threshold = base_threshold - 0.03  # 0.17 for medium groups
             else:
-                decision_threshold = 0.45  # 45% for large groups (more strict)
+                decision_threshold = base_threshold - 0.05  # 0.15 for large groups (most lenient)
+            
+            # Ensure threshold is reasonable
+            decision_threshold = max(0.10, min(0.40, decision_threshold))
+            
+            logger.debug(f"Student {student_id}: confidence={confidence:.3f}, threshold={decision_threshold:.3f} (group_size={group_size})")
             
             matches.append({
                 'student_id': student_id,
@@ -156,7 +176,7 @@ class AdvancedFaceMatcher:
                 'strategy_scores': {
                     'primary': primary_score,
                     'variants': variant_score,
-                    'ensemble': ensemble_score
+                    'ensemble': ensemble_score if has_variants else primary_score
                 }
             })
         
@@ -258,26 +278,16 @@ class AdvancedFaceMatcher:
         return min(0.9, max(0.2, adaptive_threshold))  # Clamp between 0.2 and 0.9
     
     def _calculate_confidence(self, score: float, threshold: float, profile: Dict) -> float:
-        """Calculate confidence score"""
-        # Base confidence from score
-        base_confidence = min(1.0, score / threshold)
+        """
+        Calculate confidence score - SIMPLIFIED for reliability
         
-        # Adjust based on profile quality
-        metadata = profile.get('metadata', {})
-        embedding_confidence = metadata.get('confidence_score', 0.8)
+        Higher score = better match, confidence is how good the score is
+        """
+        # Simple confidence: score directly represents similarity
+        # score is already 0-1 from cosine similarity transformation
+        base_confidence = min(1.0, max(0.0, score))
         
-        # Adjust based on recognition history
-        total_attempts = profile['successful_matches'] + profile['failed_matches']
-        if total_attempts > 0:
-            success_rate = profile['successful_matches'] / total_attempts
-            history_factor = 0.5 + (success_rate * 0.5)  # 0.5 to 1.0
-        else:
-            history_factor = 0.8  # Default for new students
-        
-        # Combine factors
-        final_confidence = base_confidence * embedding_confidence * history_factor
-        
-        return min(1.0, max(0.0, final_confidence))
+        return base_confidence
     
     def _apply_temporal_consistency(self, student_id: int, confidence: float) -> float:
         """Apply temporal consistency based on recent recognition history"""

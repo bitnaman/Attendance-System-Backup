@@ -1,6 +1,7 @@
 """
 Enhanced Face Embedding Generation for High-Accuracy Recognition
 Optimized for 100+ students with advanced ML techniques
+Uses settings from .env configuration file
 """
 import numpy as np
 import cv2
@@ -15,26 +16,73 @@ from datetime import datetime
 import joblib
 import os
 
+# Import configuration from .env
+from config import (
+    FACE_RECOGNITION_MODEL,
+    FACE_DETECTOR_BACKEND,
+    FACE_DISTANCE_THRESHOLD,
+    MIN_FACE_QUALITY_SCORE,
+    ENABLE_QUALITY_ASSESSMENT,
+    ENHANCED_PREPROCESSING,
+    MODEL_CONFIGS,
+    DETECTOR_FALLBACK_SEQUENCE,
+    ENABLE_MULTI_DETECTOR
+)
+
 logger = logging.getLogger(__name__)
 
 class EnhancedEmbeddingGenerator:
     """
     Advanced face embedding generation with multiple strategies:
-    1. Ensemble Models (ArcFace + Facenet512 + Facenet)
+    1. Ensemble Models (configured via .env)
     2. Multi-Representation Learning
     3. Adaptive Quality Assessment
     4. Temporal Consistency Learning
     5. Student-Specific Optimization
+    
+    Uses settings from .env file for consistency with the attendance system.
     """
     
     def __init__(self):
-        self.models = {
-            'ArcFace': {'weight': 0.5, 'embedding_size': 512},
-            'Facenet512': {'weight': 0.3, 'embedding_size': 512},
-            'Facenet': {'weight': 0.2, 'embedding_size': 128}
-        }
+        # Use model configurations from config.py (loaded from .env)
+        # Primary model from .env, with ensemble support
+        primary_model = FACE_RECOGNITION_MODEL
+        
+        # Build ensemble configuration based on available models
+        self.models = {}
+        
+        # Always include the primary model with highest weight
+        if primary_model in MODEL_CONFIGS:
+            self.models[primary_model] = {
+                'weight': 0.5, 
+                'embedding_size': MODEL_CONFIGS[primary_model].get('embedding_size', 512)
+            }
+        
+        # Add complementary models for ensemble (lower weights)
+        complementary_models = ['ArcFace', 'Facenet512', 'Facenet']
+        weight_remaining = 0.5
+        added_models = 0
+        
+        for model in complementary_models:
+            if model != primary_model and model in MODEL_CONFIGS:
+                self.models[model] = {
+                    'weight': weight_remaining / 2,
+                    'embedding_size': MODEL_CONFIGS[model].get('embedding_size', 512)
+                }
+                weight_remaining /= 2
+                added_models += 1
+                if added_models >= 2:
+                    break
+        
+        # Use detector backend from .env
+        self.detector_backend = FACE_DETECTOR_BACKEND
+        self.detector_fallback = DETECTOR_FALLBACK_SEQUENCE if ENABLE_MULTI_DETECTOR else [FACE_DETECTOR_BACKEND]
         
         # Quality assessment parameters
+        self.min_quality_score = MIN_FACE_QUALITY_SCORE
+        self.enable_quality_check = ENABLE_QUALITY_ASSESSMENT
+        self.enhanced_preprocessing = ENHANCED_PREPROCESSING
+        
         self.quality_weights = {
             'sharpness': 0.25,
             'brightness': 0.20,
@@ -46,6 +94,12 @@ class EnhancedEmbeddingGenerator:
         
         # Student-specific optimization cache
         self.student_optimization_cache = {}
+        
+        logger.info(f"🚀 Enhanced Embedding Generator initialized")
+        logger.info(f"   Primary Model: {primary_model}")
+        logger.info(f"   Ensemble Models: {list(self.models.keys())}")
+        logger.info(f"   Detector: {self.detector_backend}")
+        logger.info(f"   Min Quality Score: {self.min_quality_score}")
         
     def generate_enhanced_embedding(self, image_paths: List[str], 
                                   student_name: str, 
@@ -79,7 +133,7 @@ class EnhancedEmbeddingGenerator:
         }
     
     def _generate_ensemble_embeddings(self, image_paths: List[str]) -> Dict[str, List[np.ndarray]]:
-        """Generate embeddings using multiple models"""
+        """Generate embeddings using multiple models with detector fallback"""
         ensemble_embeddings = {model: [] for model in self.models.keys()}
         
         # Normalize all paths to absolute paths
@@ -94,22 +148,33 @@ class EnhancedEmbeddingGenerator:
         
         for image_path in unique_paths:
             for model_name, config in self.models.items():
-                try:
-                    embedding = DeepFace.represent(
-                        img_path=image_path,
-                        model_name=model_name,
-                        detector_backend='mtcnn',
-                        enforce_detection=True,
-                        align=True,
-                        normalization='Facenet2018'
-                    )[0]["embedding"]
+                embedding_generated = False
+                
+                # Try each detector in the fallback sequence
+                for detector in self.detector_fallback:
+                    if embedding_generated:
+                        break
                     
-                    ensemble_embeddings[model_name].append(np.array(embedding))
-                    logger.debug(f"✅ {model_name} embedding generated for {image_path}")
-                    
-                except Exception as e:
-                    logger.warning(f"⚠️ {model_name} failed for {image_path}: {e}")
-                    continue
+                    try:
+                        embedding = DeepFace.represent(
+                            img_path=image_path,
+                            model_name=model_name,
+                            detector_backend=detector,
+                            enforce_detection=True,
+                            align=True,
+                            normalization='Facenet2018'
+                        )[0]["embedding"]
+                        
+                        ensemble_embeddings[model_name].append(np.array(embedding))
+                        logger.debug(f"✅ {model_name} embedding generated for {image_path} (detector: {detector})")
+                        embedding_generated = True
+                        
+                    except Exception as e:
+                        logger.debug(f"⚠️ {model_name}/{detector} failed for {image_path}: {e}")
+                        continue
+                
+                if not embedding_generated:
+                    logger.warning(f"❌ Could not generate {model_name} embedding for {image_path} with any detector")
         
         return ensemble_embeddings
     

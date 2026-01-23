@@ -1,5 +1,5 @@
 # Multi-stage Dockerfile for Facial Attendance System Backend
-# Optimized for GPU support and production deployment
+# Optimized for CPU-only deployment with SQLite
 
 # Stage 1: Base image with system dependencies
 FROM ubuntu:22.04 as base
@@ -8,18 +8,15 @@ FROM ubuntu:22.04 as base
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    TF_FORCE_GPU_ALLOW_GROWTH=true \
-    CUDA_VISIBLE_DEVICES=0 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Install system dependencies including Redis tools and CMake for dlib
+# Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-pip \
     python3-dev \
     build-essential \
-    cmake \
     libgl1-mesa-glx \
     libglib2.0-0 \
     libsm6 \

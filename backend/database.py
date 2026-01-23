@@ -1,7 +1,7 @@
 """
 Database models for the Dental Attendance System with Class-Based Attendance.
 
-This module provides SQLAlchemy ORM models for PostgreSQL with class support.
+This module provides SQLAlchemy ORM models for SQLite with class support.
 """
 
 from datetime import datetime
@@ -22,15 +22,24 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 
 # Import configuration
-from config import DATABASE_URL
+from config import DATABASE_URL, DATABASE_TYPE, DB_ENGINE_ARGS
 
-# Engine and session factory for PostgreSQL
-engine = create_engine(
-    DATABASE_URL,
-    pool_pre_ping=True,  # Verify connections before use
-    pool_recycle=300,    # Recycle connections every 5 minutes
-    echo=False           # Set to True for SQL debugging
-)
+# Engine and session factory - supports both PostgreSQL and SQLite
+if DATABASE_TYPE == "postgresql":
+    engine = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True,  # PostgreSQL connection health check
+        pool_size=10,        # Connection pool size
+        max_overflow=20,     # Additional connections allowed
+        echo=False  # Set to True for SQL debugging
+    )
+else:
+    # SQLite configuration
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args=DB_ENGINE_ARGS,  # SQLite-specific: allow multiple threads
+        echo=False  # Set to True for SQL debugging
+    )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
@@ -126,6 +135,11 @@ class Student(Base):
     embedding_confidence = Column(Float, default=0.8)
     adaptive_threshold = Column(Float, default=0.6)
     
+    # Model tracking for compatibility
+    embedding_model = Column(String(50), nullable=True)  # e.g., "Facenet512", "ArcFace"
+    embedding_detector = Column(String(50), nullable=True)  # e.g., "mtcnn", "retinaface"
+    has_enhanced_embeddings = Column(Boolean, default=False)
+    
     # Class assignment
     class_id = Column(Integer, ForeignKey("classes.id"), nullable=False, index=True)
     class_section = Column(String(10), nullable=True)  # Denormalized for convenience
@@ -203,15 +217,18 @@ class LeaveRecord(Base):
     id = Column(Integer, primary_key=True, index=True)
     student_id = Column(Integer, ForeignKey("students.id"), nullable=False, index=True)
     leave_date = Column(DateTime, default=datetime.utcnow, index=True)
+    leave_end_date = Column(DateTime, nullable=True)  # For multi-day leaves
     leave_type = Column(String(20), nullable=False)  # medical | authorized
+    sessions_count = Column(Integer, default=1, nullable=False)  # Number of lecture sessions covered by this leave
     note = Column(Text, nullable=True)
     document_path = Column(String(500), nullable=True)
+    is_approved = Column(Boolean, default=True)  # Admin can toggle approval
     created_at = Column(DateTime, default=datetime.utcnow)
 
     student = relationship("Student")
 
     def __repr__(self):
-        return f"<LeaveRecord(id={self.id}, student_id={self.student_id}, type={self.leave_type})>"
+        return f"<LeaveRecord(id={self.id}, student_id={self.student_id}, type={self.leave_type}, sessions={self.sessions_count})>"
 
 def drop_all_tables() -> None:
     """Drop all existing tables - FRESH START"""
@@ -227,7 +244,7 @@ def create_all_tables() -> None:
 
 def init_fresh_db() -> None:
     """Initialize fresh database - drops existing and creates new"""
-    print("🔄 Initializing fresh PostgreSQL database...")
+    print("🔄 Initializing fresh SQLite database...")
     drop_all_tables()
     create_all_tables()
     

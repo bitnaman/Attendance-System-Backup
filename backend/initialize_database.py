@@ -31,7 +31,7 @@ def run_initialization():
     print("🚀 MASTER DATABASE INITIALIZATION")
     print("=" * 70)
     print(f"📅 Started at: {datetime.now()}")
-    print(f"🔗 Database: {DATABASE_URL.split('@')[1] if '@' in DATABASE_URL else 'PostgreSQL'}")
+    print(f"🔗 Database: {DATABASE_URL.split('@')[1] if '@' in DATABASE_URL else 'SQLite'}")
     print("=" * 70)
     
     engine = create_engine(DATABASE_URL)
@@ -113,6 +113,39 @@ def run_initialization():
                 success_count += len(new_student_fields)
             else:
                 print("   ℹ️  All student fields already exist")
+                skip_count += 1
+            
+            # Check and add new leave_records fields (sessions_count, leave_end_date, is_approved)
+            try:
+                leave_columns = [col['name'] for col in inspector.get_columns('leave_records')]
+                
+                new_leave_fields = []
+                if 'sessions_count' not in leave_columns:
+                    new_leave_fields.append(('sessions_count', 'INTEGER DEFAULT 1'))
+                if 'leave_end_date' not in leave_columns:
+                    new_leave_fields.append(('leave_end_date', 'TIMESTAMP'))
+                if 'is_approved' not in leave_columns:
+                    new_leave_fields.append(('is_approved', 'BOOLEAN DEFAULT TRUE'))
+                
+                if new_leave_fields:
+                    print(f"   📝 Adding {len(new_leave_fields)} new fields to leave_records table...")
+                    for field_name, field_type in new_leave_fields:
+                        connection.execute(text(f"""
+                            ALTER TABLE leave_records 
+                            ADD COLUMN {field_name} {field_type};
+                        """))
+                        print(f"      ✅ Added {field_name} column")
+                    
+                    # Set default values for existing records
+                    connection.execute(text("UPDATE leave_records SET sessions_count = 1 WHERE sessions_count IS NULL"))
+                    connection.execute(text("UPDATE leave_records SET is_approved = TRUE WHERE is_approved IS NULL"))
+                    print("      ✅ Updated existing leave records with default values")
+                    success_count += len(new_leave_fields)
+                else:
+                    print("   ℹ️  All leave_records fields already exist")
+                    skip_count += 1
+            except Exception as e:
+                print(f"   ⚠️  Could not update leave_records (table may not exist yet): {e}")
                 skip_count += 1
             
             # ================================================================

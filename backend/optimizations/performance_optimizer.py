@@ -129,20 +129,7 @@ class PerformanceOptimizer:
                         embedding.tobytes()
                     )
     
-    def enable_gpu_memory_growth(self):
-        """Optimize GPU memory usage"""
-        import tensorflow as tf
-        
-        gpus = tf.config.list_physical_devices('GPU')
-        if gpus:
-            for gpu in gpus:
-                tf.config.experimental.set_memory_growth(gpu, True)
-                tf.config.experimental.set_virtual_device_configuration(
-                    gpu,
-                    [tf.config.experimental.VirtualDeviceConfiguration(
-                        memory_limit=int(4096 * self.gpu_memory_fraction)
-                    )]
-                )
+    # GPU optimization removed - CPU-only mode
 
 
 class AsyncFaceProcessor:

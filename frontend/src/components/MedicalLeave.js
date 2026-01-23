@@ -16,6 +16,8 @@ export default function MedicalLeave({ showMessage }) {
     studentId: '',
     leaveType: 'medical',
     leaveDate: new Date().toISOString().split('T')[0],
+    leaveEndDate: '',
+    sessionsCount: 1,
     note: '',
     document: null
   });
@@ -111,6 +113,8 @@ export default function MedicalLeave({ showMessage }) {
       formData.append('student_id', leaveForm.studentId);
       formData.append('leave_type', leaveForm.leaveType);
       formData.append('leave_date', leaveForm.leaveDate);
+      formData.append('sessions_count', leaveForm.sessionsCount || 1);
+      if (leaveForm.leaveEndDate) formData.append('leave_end_date', leaveForm.leaveEndDate);
       if (leaveForm.note) formData.append('note', leaveForm.note);
       if (leaveForm.document) formData.append('document', leaveForm.document);
 
@@ -127,9 +131,12 @@ export default function MedicalLeave({ showMessage }) {
 
       showMessage('Leave record created successfully', 'success');
       setLeaveForm({
+        classId: leaveForm.classId,
         studentId: '',
         leaveType: 'medical',
         leaveDate: new Date().toISOString().split('T')[0],
+        leaveEndDate: '',
+        sessionsCount: 1,
         note: '',
         document: null
       });
@@ -224,12 +231,37 @@ export default function MedicalLeave({ showMessage }) {
                 </select>
               </div>
               <div>
-                <label>Leave Date</label>
+                <label>Number of Sessions Covered</label>
+                <input 
+                  type="number" 
+                  min="1"
+                  max="100"
+                  value={leaveForm.sessionsCount} 
+                  onChange={(e) => setLeaveForm({ ...leaveForm, sessionsCount: Math.max(1, parseInt(e.target.value) || 1) })}
+                  style={{ width: '100%', padding: 8, border: '1px solid #ddd', borderRadius: 4 }}
+                />
+                <small style={{ color: '#666' }}>How many attendance sessions does this leave cover?</small>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div>
+                <label>Leave Start Date</label>
                 <input 
                   type="date" 
                   value={leaveForm.leaveDate} 
                   onChange={(e) => setLeaveForm({ ...leaveForm, leaveDate: e.target.value })}
                 />
+              </div>
+              <div>
+                <label>Leave End Date (Optional)</label>
+                <input 
+                  type="date" 
+                  value={leaveForm.leaveEndDate} 
+                  onChange={(e) => setLeaveForm({ ...leaveForm, leaveEndDate: e.target.value })}
+                  min={leaveForm.leaveDate}
+                />
+                <small style={{ color: '#666' }}>For multi-day leave</small>
               </div>
             </div>
 
@@ -359,15 +391,89 @@ export default function MedicalLeave({ showMessage }) {
                       <div>
                         <h4 style={{ margin: 0, color: '#333' }}>{leave.student_name}</h4>
                         <p style={{ margin: '4px 0', color: '#666' }}>
-                          {new Date(leave.leave_date).toLocaleDateString()} • 
+                          {new Date(leave.leave_date).toLocaleDateString()}
+                          {leave.leave_end_date && ` - ${new Date(leave.leave_end_date).toLocaleDateString()}`}
+                          {' • '}
                           <span style={{ 
                             color: leave.leave_type === 'medical' ? '#dc3545' : '#ffc107',
-                            fontWeight: 'bold',
-                            marginLeft: 8
+                            fontWeight: 'bold'
                           }}>
                             {leave.leave_type === 'medical' ? '🏥 Medical Leave' : '📋 Authorized Absence'}
                           </span>
                         </p>
+                        <p style={{ margin: '4px 0', color: '#666' }}>
+                          <strong>Sessions Covered:</strong> {leave.sessions_count || 1}
+                          {' • '}
+                          <span style={{
+                            color: leave.is_approved !== false ? '#28a745' : '#dc3545',
+                            fontWeight: 'bold'
+                          }}>
+                            {leave.is_approved !== false ? '✅ Approved' : '⏳ Pending Approval'}
+                          </span>
+                        </p>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        {leave.is_approved === false && (
+                          <button
+                            onClick={async () => {
+                              try {
+                                const response = await fetch(`${API_BASE}/medical/leave/${leave.id}/approve`, {
+                                  method: 'POST',
+                                  headers: { Authorization: `Bearer ${localStorage.getItem('auth_token') || ''}` }
+                                });
+                                if (response.ok) {
+                                  showMessage('Leave approved successfully', 'success');
+                                  loadLeaves();
+                                } else {
+                                  throw new Error('Failed to approve');
+                                }
+                              } catch (e) {
+                                showMessage('Failed to approve leave', 'error');
+                              }
+                            }}
+                            style={{
+                              padding: '6px 12px',
+                              backgroundColor: '#28a745',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: 4,
+                              cursor: 'pointer',
+                              fontSize: 12
+                            }}
+                          >
+                            Approve
+                          </button>
+                        )}
+                        <button
+                          onClick={async () => {
+                            if (!window.confirm('Are you sure you want to delete this leave record?')) return;
+                            try {
+                              const response = await fetch(`${API_BASE}/medical/leave/${leave.id}`, {
+                                method: 'DELETE',
+                                headers: { Authorization: `Bearer ${localStorage.getItem('auth_token') || ''}` }
+                              });
+                              if (response.ok) {
+                                showMessage('Leave deleted successfully', 'success');
+                                loadLeaves();
+                              } else {
+                                throw new Error('Failed to delete');
+                              }
+                            } catch (e) {
+                              showMessage('Failed to delete leave', 'error');
+                            }
+                          }}
+                          style={{
+                            padding: '6px 12px',
+                            backgroundColor: '#dc3545',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: 4,
+                            cursor: 'pointer',
+                            fontSize: 12
+                          }}
+                        >
+                          Delete
+                        </button>
                       </div>
                     </div>
                     

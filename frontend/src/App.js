@@ -12,7 +12,12 @@ import MedicalLeave from './components/MedicalLeave';
 import BatchAttendance from './components/BatchAttendance';
 import UserProfile from './components/UserProfile';
 import BootstrapAdmin from './components/BootstrapAdmin';
-import { fetchStudents, fetchAttendanceData, fetchSessionRecords } from './api';
+import UpgradeEmbeddingsModal from './components/UpgradeEmbeddingsModal';
+import EditStudentModal from './components/EditStudentModal';
+import './styles/upgrade-modal.css';
+import './styles/edit-student-modal.css';
+import './styles/attendance-confirm-modal.css';
+import { fetchStudents, fetchAttendanceData, fetchSessionRecords, deleteStudent, toggleStudentStatus } from './api';
 
 const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:8000';
 
@@ -30,17 +35,23 @@ function AppShell() {
 
   // Students
   const [students, setStudents] = useState([]);
-  const [editingStudent, setEditingStudent] = useState(null);
-  const [editForm, setEditForm] = useState({
-    name: '', age: '', roll_no: '', prn: '', seat_no: '', email: '', phone: '', class_id: '', photo: null,
-  });
+  const [editingStudent, setEditingStudent] = useState(null); // Now stores full student object for modal
   const [updating, setUpdating] = useState(false);
+  
+  // Upgrade Embeddings Modal
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+  const [upgradeStudent, setUpgradeStudent] = useState(null);
 
 
   // Attendance
   const [attendanceForm, setAttendanceForm] = useState({ sessionName: '', classPhoto: null, class_id: '' });
   const [processing, setProcessing] = useState(false);
   const [attendanceResult, setAttendanceResult] = useState(null);
+  
+  // Attendance Preview/Confirm flow
+  const [attendancePreviewData, setAttendancePreviewData] = useState(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmProcessing, setConfirmProcessing] = useState(false);
 
   // Attendance views
   const [loadingAttendance, setLoadingAttendance] = useState(false);
@@ -57,9 +68,31 @@ function AppShell() {
     }
   };
 
+  // Model compatibility warning state
+  const [compatibilityWarning, setCompatibilityWarning] = useState(null);
+
+  // Check model compatibility on load
+  const checkModelCompatibility = async () => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`${API_BASE}/config/compatibility`, {
+        headers: { 'Authorization': `Bearer ${token || ''}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (!data.compatible || data.unknown_model_students > 0) {
+          setCompatibilityWarning(data);
+        }
+      }
+    } catch (e) {
+      console.log('Compatibility check skipped');
+    }
+  };
+
   // Initial load
   useEffect(() => {
     refreshAll();
+    checkModelCompatibility();
   }, []);
 
   const refreshAll = async () => {
@@ -100,7 +133,95 @@ function AppShell() {
     }
   };
 
-  // Attendance submit
+  // Attendance Preview - Step 1: Process photo and show confirmation modal
+  const handleAttendancePreview = async (e) => {
+    e.preventDefault();
+    if (!attendanceForm.sessionName || !attendanceForm.classPhoto || !attendanceForm.class_id) {
+      showMessage('Please provide session name, select a class, and upload a class photo', 'error');
+      return;
+    }
+    setProcessing(true);
+    try {
+      const fd = new FormData();
+      fd.append('session_name', attendanceForm.sessionName);
+      fd.append('class_id', String(attendanceForm.class_id));
+      if (attendanceForm.subject_id) {
+        fd.append('subject_id', String(attendanceForm.subject_id));
+      }
+      fd.append('photo', attendanceForm.classPhoto);
+      
+      const res = await fetch(`${API_BASE}/attendance/preview`, { method: 'POST', body: fd });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to process photo');
+      }
+      
+      const previewData = await res.json();
+      console.log('Preview data received:', previewData);
+      
+      // Store preview data and show confirmation modal
+      setAttendancePreviewData(previewData);
+      setShowConfirmModal(true);
+      
+    } catch (e) {
+      console.error(e);
+      showMessage(e.message || 'Error processing photo', 'error');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  // Attendance Confirm - Step 2: Save attendance with selected students
+  const handleConfirmAttendance = async (presentStudentIds) => {
+    if (!attendancePreviewData?.preview_id) {
+      showMessage('Preview data not found. Please process the photo again.', 'error');
+      return;
+    }
+
+    setConfirmProcessing(true);
+    try {
+      const res = await fetch(`${API_BASE}/attendance/confirm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          preview_id: attendancePreviewData.preview_id,
+          present_student_ids: presentStudentIds
+        })
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to confirm attendance');
+      }
+
+      const result = await res.json();
+      console.log('Attendance confirmed:', result);
+
+      // Build attendance result for display
+      const normalizedResult = {
+        identified_students: attendancePreviewData.all_students?.filter(s => presentStudentIds.includes(s.id)) || [],
+        total_faces: attendancePreviewData.total_faces_detected || 0,
+        identified_count: presentStudentIds.length,
+      };
+      setAttendanceResult(normalizedResult);
+
+      showMessage(`Attendance saved! ${result.present_count} present, ${result.absent_count} absent`, 'success');
+      
+      // Reset form and close modal
+      setShowConfirmModal(false);
+      setAttendancePreviewData(null);
+      setAttendanceForm({ sessionName: '', classPhoto: null, class_id: '', subject_id: '' });
+      
+      await loadAttendanceData();
+    } catch (e) {
+      console.error(e);
+      showMessage(e.message || 'Error confirming attendance', 'error');
+    } finally {
+      setConfirmProcessing(false);
+    }
+  };
+
+  // Legacy direct submit (kept for backward compatibility)
   const handleAttendanceSubmit = async (e) => {
     e.preventDefault();
     if (!attendanceForm.sessionName || !attendanceForm.classPhoto || !attendanceForm.class_id) {
@@ -149,46 +270,21 @@ function AppShell() {
 
   // Manage students
   const startEditStudent = (student) => {
-    setEditingStudent(student.id);
-    setEditForm({
-      name: student.name || '',
-      age: student.age || '',
-      roll_no: student.roll_no || '',
-      prn: student.prn || '',
-      seat_no: student.seat_no || '',
-      email: student.email || '',
-      phone: student.phone || '',
-      class_id: student.class_id || '',
-      photo: null,
-    });
+    setEditingStudent(student); // Store full student object for modal
   };
 
   const cancelEdit = () => {
     setEditingStudent(null);
-    setEditForm({ name: '', age: '', roll_no: '', prn: '', seat_no: '', email: '', phone: '', class_id: '', photo: null });
   };
 
-  const handleUpdateStudent = async (e) => {
-    e.preventDefault();
-    if (!editingStudent) return;
+  const handleUpdateStudent = async (studentId, formData) => {
+    // formData is already a FormData object from the modal
     setUpdating(true);
     try {
       const token = localStorage.getItem('auth_token');
-      const fd = new FormData();
-      Object.entries({
-        name: editForm.name,
-        age: String(editForm.age || ''),
-        roll_no: editForm.roll_no,
-        prn: editForm.prn,
-        seat_no: editForm.seat_no,
-        email: editForm.email,
-        phone: editForm.phone,
-        class_id: editForm.class_id,
-      }).forEach(([k, v]) => v !== undefined && v !== null && v !== '' && fd.append(k, v));
-      if (editForm.photo) fd.append('photo', editForm.photo);  // Fixed: backend expects 'photo' not 'image'
-      const res = await fetch(`${API_BASE}/student/${editingStudent}`, { 
+      const res = await fetch(`${API_BASE}/student/${studentId}`, { 
         method: 'PUT', 
-        body: fd,
+        body: formData,
         headers: {
           'Authorization': `Bearer ${token || ''}`
         }
@@ -197,12 +293,12 @@ function AppShell() {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.detail || 'Failed to update student');
       }
-      showMessage('Student updated', 'success');
+      showMessage('Student updated successfully', 'success');
       cancelEdit();
       await loadStudents();
     } catch (e) {
       console.error(e);
-      showMessage('Error updating student', 'error');
+      showMessage(e.message || 'Error updating student', 'error');
     } finally {
       setUpdating(false);
     }
@@ -210,82 +306,75 @@ function AppShell() {
 
   const handleDeleteStudent = async (studentId, name) => {
     try {
-      const token = localStorage.getItem('auth_token');
-      const res = await fetch(`${API_BASE}/student/${studentId}`, { 
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token || ''}`
-        }
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || 'Failed to delete');
-      }
+      await deleteStudent(studentId);
       showMessage(`Deleted ${name}`, 'success');
       await loadStudents();
     } catch (e) {
       console.error(e);
-      showMessage('Error deleting student', 'error');
+      showMessage(e.message || 'Error deleting student', 'error');
     }
   };
 
   const handleToggleStatus = async (studentId, isActive) => {
     try {
-      const token = localStorage.getItem('auth_token');
-      const res = await fetch(`${API_BASE}/student/${studentId}/toggle-status`, { 
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token || ''}`
-        }
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || 'Failed to toggle');
-      }
+      await toggleStudentStatus(studentId);
       await loadStudents();
     } catch (e) {
       console.error(e);
-      showMessage('Error toggling status', 'error');
+      showMessage(e.message || 'Error toggling status', 'error');
     }
   };
 
-  const handleUpgradeEmbeddings = async (studentId) => {
-    try {
-      const token = localStorage.getItem('auth_token');
-      const res = await fetch(`${API_BASE}/student/${studentId}/upgrade-embeddings`, { 
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token || ''}`
-        }
-      });
-      if (res.ok) {
-        showMessage('Student embeddings upgraded to enhanced system!', 'success');
-        await loadStudents();
-      } else {
-        const error = await res.json();
-        // Handle validation errors that might be objects
-        let errorMessage = 'Error upgrading embeddings';
-        if (error.detail) {
-          if (typeof error.detail === 'string') {
-            errorMessage = error.detail;
-          } else if (Array.isArray(error.detail)) {
-            errorMessage = error.detail.map(err => err.msg || err.message || 'Validation error').join(', ');
-          } else if (typeof error.detail === 'object') {
-            errorMessage = error.detail.msg || error.detail.message || 'Validation error';
-          }
-        }
-        showMessage(errorMessage, 'error');
-      }
-    } catch (e) {
-      console.error(e);
-      showMessage('Error upgrading embeddings', 'error');
+  const handleUpgradeEmbeddings = (studentId) => {
+    // Find the student and open the modal
+    const student = students.find(s => s.id === studentId);
+    if (student) {
+      setUpgradeStudent(student);
+      setUpgradeModalOpen(true);
+    } else {
+      showMessage('Student not found', 'error');
     }
+  };
+
+  const handleUpgradeSuccess = async (message) => {
+    showMessage(message, 'success');
+    await loadStudents();
+  };
+
+  const handleUpgradeError = (message) => {
+    showMessage(message, 'error');
   };
 
   // Register new student (multi-photo)
 
   return (
     <div className="app">
+      {/* Model Compatibility Warning Banner */}
+      {compatibilityWarning && (
+        <div className="compatibility-warning-banner">
+          <div className="warning-content">
+            <span className="warning-icon">⚠️</span>
+            <div className="warning-text">
+              <strong>Model Compatibility Issue:</strong>{' '}
+              {compatibilityWarning.incompatible_students > 0 
+                ? `${compatibilityWarning.incompatible_students} student(s) were registered with a different model (${compatibilityWarning.issues?.[0]?.registered_model}) and may not be recognized. Current model: ${compatibilityWarning.current_model}`
+                : `${compatibilityWarning.unknown_model_students} student(s) have unknown model info.`
+              }
+            </div>
+            <button 
+              className="warning-dismiss" 
+              onClick={() => setCompatibilityWarning(null)}
+              title="Dismiss"
+            >
+              ×
+            </button>
+          </div>
+          <div className="warning-action">
+            <span>Use "Upgrade AI" on affected students to fix.</span>
+          </div>
+        </div>
+      )}
+      
       <header className="modern-header">
         <div className="header-content">
           <div className="brand-section">
@@ -379,8 +468,14 @@ function AppShell() {
                 attendanceForm={attendanceForm}
                 setAttendanceForm={setAttendanceForm}
                 onSubmit={handleAttendanceSubmit}
+                onPreview={handleAttendancePreview}
                 processing={processing}
                 showMessage={showMessage}
+                previewData={attendancePreviewData}
+                showConfirmModal={showConfirmModal}
+                setShowConfirmModal={setShowConfirmModal}
+                onConfirmAttendance={handleConfirmAttendance}
+                confirmProcessing={confirmProcessing}
               />
               {attendanceResult && (
                 <div className="attendance-result">
@@ -432,12 +527,6 @@ function AppShell() {
               onEdit={startEditStudent}
               onDelete={handleDeleteStudent}
               onToggle={handleToggleStatus}
-              editingStudent={editingStudent}
-              editForm={editForm}
-              setEditForm={setEditForm}
-              onUpdate={handleUpdateStudent}
-              onCancel={cancelEdit}
-              updating={updating}
               onUpgradeEmbeddings={handleUpgradeEmbeddings}
             />
           )}
@@ -454,6 +543,28 @@ function AppShell() {
           })()}
         </div>
       </main>
+      
+      {/* Upgrade Embeddings Modal */}
+      <UpgradeEmbeddingsModal
+        isOpen={upgradeModalOpen}
+        onClose={() => {
+          setUpgradeModalOpen(false);
+          setUpgradeStudent(null);
+        }}
+        student={upgradeStudent}
+        onSuccess={handleUpgradeSuccess}
+        onError={handleUpgradeError}
+      />
+      
+      {/* Edit Student Modal */}
+      {editingStudent && (
+        <EditStudentModal
+          student={editingStudent}
+          onUpdate={handleUpdateStudent}
+          onCancel={cancelEdit}
+          updating={updating}
+        />
+      )}
     </div>
   );
 }

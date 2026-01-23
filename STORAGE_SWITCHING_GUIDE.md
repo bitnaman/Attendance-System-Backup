@@ -17,12 +17,12 @@ Choose one of these options:
 #### Option A: AWS RDS PostgreSQL (Recommended)
 1. Create RDS PostgreSQL instance in AWS
 2. Note down: endpoint, username, password
-3. Update database section in `backend/.env`
+3. Update database section in root `.env`
 
 #### Option B: Self-hosted PostgreSQL
 1. Install PostgreSQL on your cloud server
 2. Configure remote access and security
-3. Update database section in `backend/.env`
+3. Update database section in root `.env`
 
 #### Option C: Other Cloud Providers
 - Google Cloud SQL, Azure Database, DigitalOcean, Heroku Postgres, etc.
@@ -39,7 +39,7 @@ pg_dump -h localhost -U postgres dental_attendance > dental_attendance_backup.sq
 psql -h your-cloud-host -U postgres dental_attendance < dental_attendance_backup.sql
 ```
 
-### Step 3: Update Backend Configuration (`backend/.env`)
+### Step 3: Update Backend Configuration (`.env`)
 
 ```bash
 # Comment out LOCAL sections and uncomment CLOUD sections:

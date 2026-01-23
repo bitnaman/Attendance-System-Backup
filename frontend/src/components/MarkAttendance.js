@@ -1,7 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import BatchAttendance from './BatchAttendance';
+import AttendanceConfirmModal from './AttendanceConfirmModal';
 
-export default function MarkAttendance({ attendanceForm, setAttendanceForm, onSubmit, processing, showMessage }) {
+export default function MarkAttendance({ 
+  attendanceForm, 
+  setAttendanceForm, 
+  onSubmit, 
+  processing, 
+  showMessage,
+  // New props for preview flow
+  onPreview,
+  previewData,
+  showConfirmModal,
+  setShowConfirmModal,
+  onConfirmAttendance,
+  confirmProcessing
+}) {
   const [showBatch, setShowBatch] = useState(false);
   const [classes, setClasses] = useState([]);
   const [subjects, setSubjects] = useState([]);
@@ -10,6 +24,13 @@ export default function MarkAttendance({ attendanceForm, setAttendanceForm, onSu
   const [previewImage, setPreviewImage] = useState(null);
 
   const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:8000';
+
+  // Clear preview image when form is reset (classPhoto becomes null)
+  useEffect(() => {
+    if (!attendanceForm.classPhoto) {
+      setPreviewImage(null);
+    }
+  }, [attendanceForm.classPhoto]);
 
   // Load available classes
   useEffect(() => {
@@ -76,6 +97,17 @@ export default function MarkAttendance({ attendanceForm, setAttendanceForm, onSu
     setPreviewImage(null);
   };
 
+  // Handle form submit - trigger preview instead of direct submission
+  const handleFormSubmit = (e) => {
+    e.preventDefault();
+    if (onPreview) {
+      onPreview(e);
+    } else {
+      // Fallback to legacy direct submission
+      onSubmit(e);
+    }
+  };
+
   return (
     <div className="attendance-tab">
       <div className="section-header">
@@ -138,7 +170,7 @@ export default function MarkAttendance({ attendanceForm, setAttendanceForm, onSu
         <BatchAttendance showMessage={showMessage} />
       ) : (
         <div className="modern-form">
-          <form onSubmit={onSubmit} encType="multipart/form-data">
+          <form onSubmit={handleFormSubmit} encType="multipart/form-data">
           <div className="form-row">
             <div className="form-group">
               <label>Session Name *</label>
@@ -241,12 +273,12 @@ export default function MarkAttendance({ attendanceForm, setAttendanceForm, onSu
               {processing ? (
                 <>
                   <span className="btn-icon">⏳</span>
-                  Processing Attendance...
+                  Processing Photo...
                 </>
               ) : (
                 <>
-                  <span className="btn-icon">✅</span>
-                  Mark Attendance
+                  <span className="btn-icon">🔍</span>
+                  Process & Preview
                 </>
               )}
             </button>
@@ -254,6 +286,15 @@ export default function MarkAttendance({ attendanceForm, setAttendanceForm, onSu
         </form>
       </div>
       )}
+
+      {/* Attendance Confirmation Modal */}
+      <AttendanceConfirmModal
+        isOpen={showConfirmModal}
+        onClose={() => setShowConfirmModal(false)}
+        onConfirm={onConfirmAttendance}
+        previewData={previewData}
+        processing={confirmProcessing}
+      />
     </div>
   );
 }

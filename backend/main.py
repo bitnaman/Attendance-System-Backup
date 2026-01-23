@@ -1,7 +1,19 @@
 """
-PostgreSQL-Based Dental Attendance System - Main Backend
+SQLite-Based Dental Attendance System - Main Backend
 Enhanced with environment-based storage support and comprehensive logging.
 """
+
+# Suppress TensorFlow and CUDA warnings before any imports
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Suppress TensorFlow INFO and WARNING
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'  # Suppress oneDNN messages
+import warnings
+warnings.filterwarnings('ignore', category=UserWarning)
+warnings.filterwarnings('ignore', category=FutureWarning)
+
+# Suppress absl logging
+import logging as _logging
+_logging.getLogger('absl').setLevel(_logging.ERROR)
 
 import logging
 from datetime import datetime
@@ -61,7 +73,6 @@ async def lifespan(app: FastAPI):
         
         # Initialize performance optimizations
         await performance_optimizer.initialize_redis()
-        performance_optimizer.enable_gpu_memory_growth()
         logger.info("✅ Performance optimizations initialized")
         
         # Initialize monitoring
@@ -85,7 +96,15 @@ async def lifespan(app: FastAPI):
         
         # Initialize database tables if they don't exist (preserves existing data)
         create_all_tables()
-        logger.info("PostgreSQL database initialized")
+        logger.info("SQLite database initialized")
+        
+        # Run migrations for model tracking columns
+        try:
+            from migrations.add_model_tracking import add_model_tracking_columns
+            add_model_tracking_columns()
+            logger.info("✅ Model tracking migrations complete")
+        except Exception as e:
+            logger.warning(f"Migration warning: {e}")
         
         # Initialize face recognizer
         initialize_face_recognizer()
@@ -101,7 +120,7 @@ async def lifespan(app: FastAPI):
             # Log final system status
             logger.info("🎯 SYSTEM READY STATUS")
             logger.info(f"   🧠 Face Recognition: {recognizer.__class__.__name__}")
-            logger.info(f"   🖥️ Compute: {'GPU' if recognizer.gpu_available else 'CPU'}")
+            logger.info(f"   🖥️ Compute: CPU")
             logger.info(f"   📊 TensorFlow: {recognizer.tf_version}")
             logger.info(f"   👥 Students Loaded: {student_count}")
             logger.info(f"   💾 Storage: {PHOTO_STORAGE_TYPE.upper()}")
@@ -170,7 +189,7 @@ async def health_check(recognizer: ClassBasedFaceRecognizer = Depends(get_face_r
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
         "version": "6.0.0",
-        "database": "PostgreSQL",
+        "database": "SQLite",
         "face_recognition_status": recognizer_status,
         "features": {
             "class_based_attendance": True,
@@ -178,7 +197,7 @@ async def health_check(recognizer: ClassBasedFaceRecognizer = Depends(get_face_r
             "no_data_migration": True
         },
         "system_info": {
-            "database": "PostgreSQL connected",
+            "database": "SQLite connected",
             "static_files": "mounted",
             "cors": "enabled",
             "class_support": "enabled"
@@ -190,7 +209,7 @@ async def root():
     return {
         "message": "Dental Attendance System API",
         "version": "6.0.0",
-        "database": "PostgreSQL",
+        "database": "SQLite",
         "features": [
             "Class-based student management",
             "Class-specific attendance marking", 
@@ -214,7 +233,7 @@ async def system_info(db: Session = Depends(get_db)):
         
         return {
             "system_status": "operational",
-            "database_type": "PostgreSQL",
+            "database_type": "SQLite",
             "version": "6.0.0",
             "fresh_installation": True,
             "data_migration": False,

@@ -199,8 +199,9 @@ class RecognitionIntegration:
         
         self.advanced_matcher.load_optimization_data(filepath)
 
+
 # Global instance
-            recognition_integration = RecognitionIntegration()
+recognition_integration = RecognitionIntegration()
 
 # Convenience functions
 def recognize_faces_enhanced(face_embeddings: List[np.ndarray], 

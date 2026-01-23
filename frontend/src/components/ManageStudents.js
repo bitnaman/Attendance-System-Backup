@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import StudentCard from './StudentCard';
-import EditStudentForm from './EditStudentForm';
 import StudentDetail from './StudentDetail';
 
 export default function ManageStudents({
@@ -8,12 +7,6 @@ export default function ManageStudents({
   onEdit,
   onDelete,
   onToggle,
-  editingStudent,
-  editForm,
-  setEditForm,
-  onUpdate,
-  onCancel,
-  updating,
   onUpgradeEmbeddings
 }) {
   const [classes, setClasses] = useState([]);
@@ -388,16 +381,6 @@ export default function ManageStudents({
             </div>
           )}
         </>
-      )}
-
-      {editingStudent !== null && (
-        <EditStudentForm
-          editForm={editForm}
-          setEditForm={setEditForm}
-          onUpdate={onUpdate}
-          onCancel={onCancel}
-          updating={updating}
-        />
       )}
 
       {selectedStudentId && (
