@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import StudentCard from './StudentCard';
 import StudentDetail from './StudentDetail';
 
+const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:8000';
+
 export default function ManageStudents({
   students,
   onEdit,
@@ -22,7 +24,7 @@ export default function ManageStudents({
   useEffect(() => {
     const fetchClasses = async () => {
       try {
-        const response = await fetch('http://localhost:8000/student/classes', {
+        const response = await fetch(`${API_BASE}/student/classes`, {
           method: 'GET',
           headers: {
             'Accept': 'application/json',

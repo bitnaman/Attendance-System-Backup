@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 
+const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:8000';
+
 function StudentRegistration() {
   const [formData, setFormData] = useState({
     name: "",
@@ -41,7 +43,7 @@ function StudentRegistration() {
       // Add image
       formDataToSend.append("image", image);
 
-      const response = await fetch("http://127.0.0.1:8000/student/", {
+      const response = await fetch(`${API_BASE}/student/`, {
         method: "POST",
         body: formDataToSend,
       });

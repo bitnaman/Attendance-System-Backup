@@ -8,6 +8,8 @@ import {
   formatDate
 } from './attendance';
 
+const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:8000';
+
 /**
  * ViewAttendance - Main component for viewing attendance sessions
  * Uses modular sub-components for better maintainability
@@ -32,7 +34,7 @@ export default function ViewAttendance({
   useEffect(() => {
     const fetchClasses = async () => {
       try {
-        const response = await fetch('http://localhost:8000/student/classes', {
+        const response = await fetch(`${API_BASE}/student/classes`, {
           method: 'GET',
           headers: {
             'Accept': 'application/json',

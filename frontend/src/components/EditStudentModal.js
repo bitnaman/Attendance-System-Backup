@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import '../styles/edit-student-modal.css';
 
+const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:8000';
+
 const EditStudentModal = ({ student, onUpdate, onCancel, updating }) => {
   const [classes, setClasses] = useState([]);
   const [editForm, setEditForm] = useState({
@@ -37,7 +39,7 @@ const EditStudentModal = ({ student, onUpdate, onCancel, updating }) => {
   useEffect(() => {
     const fetchClasses = async () => {
       try {
-        const response = await fetch('http://localhost:8000/student/classes', {
+        const response = await fetch(`${API_BASE}/student/classes`, {
           method: 'GET',
           headers: {
             'Accept': 'application/json',
@@ -121,7 +123,7 @@ const EditStudentModal = ({ student, onUpdate, onCancel, updating }) => {
             <div className="student-avatar-edit">
               {student.photo_path ? (
                 <img 
-                  src={`http://localhost:8000/static/student_photos/${student.photo_path}`}
+                  src={`${API_BASE}/static/student_photos/${student.photo_path}`}
                   alt={student.name}
                   className="student-edit-photo"
                 />

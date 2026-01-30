@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 
+const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:8000';
+
 const EditStudentForm = ({ editForm, setEditForm, onUpdate, onCancel, updating }) => {
   const [classes, setClasses] = useState([]);
 
   useEffect(() => {
     const fetchClasses = async () => {
       try {
-        const response = await fetch('http://localhost:8000/student/classes', {
+        const response = await fetch(`${API_BASE}/student/classes`, {
           method: 'GET',
           headers: {
             'Accept': 'application/json',
