@@ -77,12 +77,17 @@ async def process_batch_attendance(
     # Save uploaded images and process
     saved_urls: List[str] = []
     identified: Dict[int, Dict[str, Any]] = {}
+    photo_stats: Dict[int, Dict[str, Any]] = {}  # Track per-photo statistics
+    
     try:
         for i, up in enumerate(photos):
             if not (up.content_type or '').startswith('image/'):
                 raise HTTPException(status_code=400, detail="All files must be images")
             url = await storage_manager.save_attendance_photo(up, f"{session_name}_{i+1}")
             saved_urls.append(url)
+            
+            # Initialize per-photo stats
+            photo_stats[i + 1] = {"faces_detected": 0, "students_identified": 0}
 
             # Map URL to local path for processing when local
             from config import STATIC_DIR
@@ -101,14 +106,29 @@ async def process_batch_attendance(
                     logger.warning(f"Enhanced recognition failed for photo {i+1}: {e}, falling back to standard")
                     result = face_recognizer.process_class_photo(local_path, class_id)
                 
+                # Track photo statistics
+                photo_stats[i + 1]["faces_detected"] = result.get("total_faces_detected", 0)
+                photo_stats[i + 1]["students_identified"] = len(result.get("identified_students", []))
+                
                 for match in result.get("identified_students", []):
-                    sid = int(match["student_id"])  # de-duplicate by highest confidence
-                    if sid not in identified or match["confidence"] > identified[sid]["confidence"]:
+                    sid = int(match["student_id"])
+                    current_confidence = float(match.get("confidence", 0.0))
+                    
+                    if sid not in identified:
+                        # First detection of this student
                         identified[sid] = {
                             "student_id": sid,
                             "name": match.get("name"),
-                            "confidence": float(match.get("confidence", 0.0)),
+                            "confidence": current_confidence,
+                            "detection_count": 1,  # Track appearances across photos
+                            "detected_in_photos": [i + 1],  # Which photos detected this student
                         }
+                    else:
+                        # Student already detected - increment count and update if higher confidence
+                        identified[sid]["detection_count"] += 1
+                        identified[sid]["detected_in_photos"].append(i + 1)
+                        if current_confidence > identified[sid]["confidence"]:
+                            identified[sid]["confidence"] = current_confidence
 
         # Build class roster to compute undetected
         class_students = db.query(Student).filter(Student.class_id == class_id, Student.is_active == True).all()
@@ -132,11 +152,37 @@ async def process_batch_attendance(
             "created_at": datetime.utcnow().isoformat(),
         }
 
+        # Calculate summary statistics for better admin visibility
+        total_class_students = len(class_students)
+        total_detected = len(identified)
+        total_undetected = len(undetected)
+        detection_rate = (total_detected / total_class_students * 100) if total_class_students > 0 else 0
+        
+        # Students detected in multiple photos (higher reliability)
+        multi_photo_detections = sum(1 for s in identified.values() if s.get("detection_count", 1) > 1)
+        
+        # Log batch processing summary
+        logger.info(f"📊 BATCH PROCESSING SUMMARY for class {class_obj.name} {class_obj.section}:")
+        logger.info(f"   📷 Photos processed: {len(saved_urls)}")
+        logger.info(f"   ✅ Students detected: {total_detected}/{total_class_students} ({detection_rate:.1f}%)")
+        logger.info(f"   🔁 Multi-photo detections: {multi_photo_detections} students")
+        logger.info(f"   ❌ Undetected: {total_undetected} students")
+
         return {
             "sessionCandidateId": candidate_id,
             "detectedStudents": list(identified.values()),
             "undetected": undetected,
             "photoUrls": saved_urls,
+            # Enhanced statistics (backward compatible - new fields only)
+            "stats": {
+                "totalClassStudents": total_class_students,
+                "totalDetected": total_detected,
+                "totalUndetected": total_undetected,
+                "detectionRate": round(detection_rate, 1),
+                "photosProcessed": len(saved_urls),
+                "multiPhotoDetections": multi_photo_detections,  # Students seen in 2+ photos
+                "perPhotoStats": photo_stats,
+            }
         }
     except HTTPException:
         raise

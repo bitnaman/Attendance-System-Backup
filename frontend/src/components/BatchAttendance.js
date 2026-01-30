@@ -408,6 +408,9 @@ function BatchPreview({ previewData, onCommit, onCancel, processing, getPhotoUrl
             <p>
               Detected: {previewData.detectedStudents.length} students • 
               Total in class: {allStudents.length} students
+              {previewData.stats && (
+                <> • Detection Rate: {previewData.stats.detectionRate}%</>
+              )}
             </p>
           </div>
           <button 
@@ -418,6 +421,50 @@ function BatchPreview({ previewData, onCommit, onCancel, processing, getPhotoUrl
             ✕
           </button>
         </div>
+
+        {/* Enhanced Statistics Banner */}
+        {previewData.stats && (
+          <div className="batch-stats-banner" style={{
+            display: 'flex',
+            gap: '1rem',
+            padding: '0.75rem 1rem',
+            background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
+            borderRadius: '8px',
+            marginBottom: '1rem',
+            flexWrap: 'wrap'
+          }}>
+            <div style={{ textAlign: 'center', flex: '1', minWidth: '80px' }}>
+              <div style={{ fontSize: '1.25rem', fontWeight: '600', color: '#0369a1' }}>
+                {previewData.stats.photosProcessed}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Photos</div>
+            </div>
+            <div style={{ textAlign: 'center', flex: '1', minWidth: '80px' }}>
+              <div style={{ fontSize: '1.25rem', fontWeight: '600', color: '#16a34a' }}>
+                {previewData.stats.totalDetected}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Detected</div>
+            </div>
+            <div style={{ textAlign: 'center', flex: '1', minWidth: '80px' }}>
+              <div style={{ fontSize: '1.25rem', fontWeight: '600', color: '#dc2626' }}>
+                {previewData.stats.totalUndetected}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Undetected</div>
+            </div>
+            <div style={{ textAlign: 'center', flex: '1', minWidth: '80px' }}>
+              <div style={{ fontSize: '1.25rem', fontWeight: '600', color: '#7c3aed' }}>
+                {previewData.stats.multiPhotoDetections}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Multi-Photo ✓</div>
+            </div>
+            <div style={{ textAlign: 'center', flex: '1', minWidth: '80px' }}>
+              <div style={{ fontSize: '1.25rem', fontWeight: '600', color: '#0891b2' }}>
+                {previewData.stats.detectionRate}%
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Rate</div>
+            </div>
+          </div>
+        )}
 
         {/* Photo Preview */}
         {previewData.photoUrls && previewData.photoUrls.length > 0 && (
@@ -441,9 +488,12 @@ function BatchPreview({ previewData, onCommit, onCancel, processing, getPhotoUrl
           {allStudents.map((student) => {
             const isDetected = previewData.detectedStudents.some(s => s.student_id === student.student_id);
             const isPresent = presentStudents.has(student.student_id);
-            const confidence = isDetected 
-              ? previewData.detectedStudents.find(s => s.student_id === student.student_id)?.confidence 
-              : 0;
+            const detectedStudent = isDetected 
+              ? previewData.detectedStudents.find(s => s.student_id === student.student_id)
+              : null;
+            const confidence = detectedStudent?.confidence || 0;
+            const detectionCount = detectedStudent?.detection_count || 0;
+            const detectedInPhotos = detectedStudent?.detected_in_photos || [];
 
             return (
               <div 
@@ -460,8 +510,24 @@ function BatchPreview({ previewData, onCommit, onCancel, processing, getPhotoUrl
                 <span className="batch-student-name">{student.name}</span>
                 
                 {isDetected ? (
-                  <span className="batch-student-badge detected">
+                  <span className="batch-student-badge detected" title={
+                    detectionCount > 1 
+                      ? `Detected in photos: ${detectedInPhotos.join(', ')}` 
+                      : `Detected in photo ${detectedInPhotos[0] || 1}`
+                  }>
                     ✓ Detected ({(confidence * 100).toFixed(1)}%)
+                    {detectionCount > 1 && (
+                      <span style={{ 
+                        marginLeft: '4px', 
+                        background: '#7c3aed', 
+                        color: 'white', 
+                        padding: '1px 5px', 
+                        borderRadius: '10px', 
+                        fontSize: '0.7rem' 
+                      }}>
+                        {detectionCount}x
+                      </span>
+                    )}
                   </span>
                 ) : (
                   <span className="batch-student-badge not-detected">
