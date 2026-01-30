@@ -165,7 +165,14 @@ class BootstrapRequest(BaseModel):
 
 @router.post("/bootstrap-superadmin", response_model=UserOut)
 def bootstrap_superadmin(payload: BootstrapRequest, db: Session = Depends(get_db)):
-    """Create initial superadmin if no users exist yet (one-time bootstrap)."""
+    """Create initial superadmin if no users exist yet (one-time bootstrap).
+    
+    The first superadmin created is automatically set as the PRIMARY ADMIN:
+    - Cannot be deleted by anyone
+    - Cannot have their role changed by anyone
+    - Only they can change their own password
+    - Other superadmins cannot see or modify this account
+    """
     user_count = db.query(User).count()
     if user_count > 0:
         raise HTTPException(status_code=403, detail="Bootstrap not allowed: users already exist")
@@ -177,6 +184,7 @@ def bootstrap_superadmin(payload: BootstrapRequest, db: Session = Depends(get_db
         password_hash=get_password_hash(payload.password),
         role="superadmin",
         is_active=True,
+        is_primary_admin=True,  # 🔒 First user is the PRIMARY ADMIN - protected and unmodifiable
     )
     db.add(user)
     db.commit()
