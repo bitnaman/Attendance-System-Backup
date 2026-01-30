@@ -93,6 +93,7 @@ celerybeat.pid
 
 # Environments
 .env
+.env.production
 .venv
 env/
 venv/
@@ -214,6 +215,9 @@ storybook-static/
 /backend/static/student_photos/
 /backend/backups/
 *.log
+
+# Frontend production env (create manually on server)
+frontend/.env.production
 
 # IDE files
 .vscode/
