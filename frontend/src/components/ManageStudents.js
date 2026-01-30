@@ -74,92 +74,37 @@ export default function ManageStudents({
 
   return (
     <div className="manage-students-tab">
-      <h2 style={{ color: '#2c3e50', marginBottom: '2rem', fontSize: '2rem', fontWeight: '700' }}>Manage Students</h2>
+      <h2 className="section-title">Manage Students</h2>
       
       {/* YouTube-style Search and Filter Bar */}
-      <div style={{ 
-        marginBottom: '2rem',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '1rem',
-        flexWrap: 'wrap'
-      }}>
+      <div className="search-filter-bar">
         {/* Search Bar */}
-        <div style={{ 
-          flex: '1',
-          minWidth: '300px',
-          position: 'relative'
-        }}>
+        <div className="search-container">
           <input 
             type="text" 
             value={searchTerm} 
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search students by name, roll no, or PRN..."
-            style={{ 
-              width: '100%', 
-              padding: '0.75rem 1rem 0.75rem 3rem', 
-              border: '2px solid rgba(44, 62, 80, 0.1)', 
-              borderRadius: '25px',
-              fontSize: '14px',
-              transition: 'all 0.3s ease',
-              outline: 'none'
-            }}
-            onFocus={(e) => {
-              e.target.style.borderColor = '#2c3e50';
-              e.target.style.boxShadow = '0 0 0 3px rgba(44, 62, 80, 0.1)';
-            }}
-            onBlur={(e) => {
-              e.target.style.borderColor = 'rgba(44, 62, 80, 0.1)';
-              e.target.style.boxShadow = 'none';
-            }}
+            placeholder="Search students..."
+            className="search-input"
           />
-          <span style={{ 
-            position: 'absolute',
-            left: '1rem',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            color: '#2c3e50',
-            fontSize: '16px'
-          }}>
-            🔍
-          </span>
+          <span className="search-icon">🔍</span>
         </div>
 
         {/* Filter Toggle Button */}
         <button 
           onClick={() => setShowFilters(!showFilters)}
-          style={{ 
-            padding: '0.75rem 1.5rem', 
-            border: '2px solid rgba(44, 62, 80, 0.2)', 
-            backgroundColor: showFilters ? '#2c3e50' : 'white', 
-            color: showFilters ? 'white' : '#2c3e50', 
-            borderRadius: '25px',
-            cursor: 'pointer',
-            fontSize: '14px',
-            fontWeight: '500',
-            transition: 'all 0.3s ease',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem'
-          }}
+          className={`filter-toggle-btn ${showFilters ? 'active' : ''}`}
         >
           <span>🔧</span>
-          Filters
-          <span style={{ fontSize: '12px' }}>
-            {showFilters ? '▲' : '▼'}
-          </span>
+          <span className="filter-text">Filters</span>
+          <span className="filter-arrow">{showFilters ? '▲' : '▼'}</span>
         </button>
 
         {/* Results Count */}
-        <div style={{ 
-          color: '#2c3e50', 
-          fontSize: '0.9rem', 
-          fontWeight: '500',
-          whiteSpace: 'nowrap'
-        }}>
+        <div className="results-count">
           {filteredStudents.length} students
           {filteredStudents.length !== students.length && (
-            <span style={{ color: '#666' }}> of {students.length}</span>
+            <span className="total-count"> of {students.length}</span>
           )}
         </div>
       </div>

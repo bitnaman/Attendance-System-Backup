@@ -55,14 +55,10 @@ export default function Login() {
       <div className="login-branding">
         <div className="login-branding-content">
           <div className="login-brand-logo">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <path d="M12 14l9-5-9-5-9 5 9 5z" />
-              <path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14zm-4 6v-7.5l4-2.222" />
-            </svg>
+            <img src="/logo.jpeg" alt="Bharati Vidyapeeth" className="login-logo-img" />
           </div>
-          <h1 className="login-brand-title">Facial Attendance</h1>
-          <p className="login-brand-subtitle">Smart attendance tracking with facial recognition technology</p>
+          <h1 className="login-brand-title">Bharati <span style={{color: '#fbbf24'}}>Facify</span></h1>
+          <p className="login-brand-subtitle">AI-Powered Facial Recognition Attendance</p>
           
           <div className="login-features">
             <div className="login-feature">
@@ -102,6 +98,15 @@ export default function Login() {
       {/* Right Side - Login Form */}
       <div className="login-form-section">
         <div className="login-form-container">
+          {/* Mobile Branding Header - Shows only on mobile */}
+          <div className="mobile-branding">
+            <img src="/logo.jpeg" alt="Bharati Vidyapeeth" className="mobile-logo" />
+            <div className="mobile-brand-text">
+              <h1 className="mobile-brand-title">Bharati <span>Facify</span></h1>
+              <p className="mobile-brand-tagline">AI-Powered Attendance</p>
+            </div>
+          </div>
+          
           <div className="login-form-header">
             <h2 className="login-title">Welcome back</h2>
             <p className="login-subtitle">Enter your credentials to access your account</p>
@@ -193,7 +198,7 @@ export default function Login() {
           </form>
 
           <div className="login-footer">
-            <p>Facial Attendance System v2.0</p>
+            <p>Bharati Facify v2.0</p>
           </div>
         </div>
       </div>

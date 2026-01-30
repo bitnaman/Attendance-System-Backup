@@ -261,7 +261,8 @@
 /* Responsive Design */
 @media (max-width: 768px) {
   .photo-previews {
-    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 0.75rem;
   }
   
   .registration-progress {
@@ -276,5 +277,52 @@
   .class-options {
     flex-direction: column;
     align-items: stretch;
+  }
+  
+  .registration-form,
+  .student-form {
+    padding: 1.25rem;
+    margin: 0;
+  }
+  
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .upload-area {
+    min-height: 150px;
+    padding: 1rem;
+  }
+  
+  .upload-placeholder {
+    padding: 1.5rem;
+  }
+  
+  .upload-icon {
+    font-size: 2rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .photo-previews {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+  }
+  
+  .registration-form,
+  .student-form {
+    padding: 1rem;
+    border-radius: 12px;
+  }
+  
+  .form-group label {
+    font-size: 0.875rem;
+  }
+  
+  .form-group input,
+  .form-group select {
+    padding: 0.875rem;
+    font-size: 16px;
   }
 }

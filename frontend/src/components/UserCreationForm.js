@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../AuthContext';
+import '../styles/user-profile.css';
 
 const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:8000';
 
@@ -18,7 +19,6 @@ export default function UserCreationForm({ onUserCreated }) {
   const validateForm = () => {
     const newErrors = {};
 
-    // Username validation
     if (!formData.username.trim()) {
       newErrors.username = 'Username is required';
     } else if (formData.username.length < 3) {
@@ -27,14 +27,12 @@ export default function UserCreationForm({ onUserCreated }) {
       newErrors.username = 'Username can only contain letters, numbers, and underscores';
     }
 
-    // Password validation
     if (!formData.password) {
       newErrors.password = 'Password is required';
     } else if (formData.password.length < 6) {
       newErrors.password = 'Password must be at least 6 characters';
     }
 
-    // Confirm password validation
     if (!formData.confirmPassword) {
       newErrors.confirmPassword = 'Please confirm your password';
     } else if (formData.password !== formData.confirmPassword) {
@@ -50,9 +48,7 @@ export default function UserCreationForm({ onUserCreated }) {
     setMessage('');
     setErrors({});
 
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
 
     setLoading(true);
     try {
@@ -73,15 +69,8 @@ export default function UserCreationForm({ onUserCreated }) {
 
       if (response.ok) {
         setMessage(`✅ Successfully created ${data.role}: ${data.username}`);
-        setFormData({
-          username: '',
-          password: '',
-          confirmPassword: '',
-          role: 'teacher'
-        });
-        if (onUserCreated) {
-          onUserCreated();
-        }
+        setFormData({ username: '', password: '', confirmPassword: '', role: 'teacher' });
+        if (onUserCreated) onUserCreated();
       } else {
         setMessage(`❌ Error: ${data.detail || 'Failed to create user'}`);
       }
@@ -94,220 +83,70 @@ export default function UserCreationForm({ onUserCreated }) {
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    // Clear error when user starts typing
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
-    }
+    if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }));
   };
 
-  const getRoleIcon = (role) => {
-    switch (role) {
-      case 'superadmin':
-        return '👑';
-      case 'teacher':
-        return '👨‍🏫';
-      default:
-        return '👤';
-    }
-  };
-
-  const getRoleDescription = (role) => {
-    switch (role) {
-      case 'superadmin':
-        return 'Full system access, can create users and manage all features';
-      case 'teacher':
-        return 'Can mark attendance, manage students, and view analytics';
-      default:
-        return '';
-    }
-  };
+  const roles = [
+    { id: 'teacher', icon: '👨‍🏫', title: 'Teacher', desc: 'Mark attendance, manage students, view analytics' },
+    { id: 'superadmin', icon: '👑', title: 'Super Admin', desc: 'Full system access, user management' }
+  ];
 
   return (
-    <div style={{
-      backgroundColor: 'rgba(255, 255, 255, 0.95)',
-      borderRadius: '16px',
-      padding: '2rem',
-      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-      border: '1px solid rgba(255, 255, 255, 0.2)'
-    }}>
-      {/* Header */}
-      <div style={{ marginBottom: '2rem' }}>
-        <h3 style={{
-          margin: 0,
-          color: '#2c3e50',
-          fontSize: '1.4rem',
-          fontWeight: '700',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.5rem',
-          marginBottom: '0.5rem'
-        }}>
-          ➕ Create New User
-        </h3>
-        <p style={{
-          margin: 0,
-          color: '#7f8c8d',
-          fontSize: '0.95rem'
-        }}>
-          Add new teachers or administrators to the system
-        </p>
+    <div className="user-form-card">
+      <div className="user-form-header">
+        <h3>➕ Create New User</h3>
+        <p>Add new teachers or administrators</p>
       </div>
 
-      {/* Form */}
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-        {/* Username Field */}
-        <div>
-          <label style={{
-            display: 'block',
-            marginBottom: '0.5rem',
-            color: '#2c3e50',
-            fontSize: '0.9rem',
-            fontWeight: '600'
-          }}>
-            👤 Username
-          </label>
+      <form onSubmit={handleSubmit} className="user-form">
+        {/* Username */}
+        <div className="form-field">
+          <label className="form-label">👤 Username</label>
           <input
             type="text"
+            className={`form-input ${errors.username ? 'error' : ''}`}
             value={formData.username}
             onChange={(e) => handleInputChange('username', e.target.value)}
-            placeholder="Enter username (letters, numbers, underscores only)"
-            style={{
-              width: '100%',
-              padding: '1rem',
-              border: `2px solid ${errors.username ? '#e74c3c' : 'rgba(44, 62, 80, 0.1)'}`,
-              borderRadius: '12px',
-              fontSize: '1rem',
-              transition: 'all 0.3s ease',
-              outline: 'none',
-              backgroundColor: 'rgba(255, 255, 255, 0.8)',
-              boxSizing: 'border-box'
-            }}
-            onFocus={(e) => {
-              e.target.style.borderColor = errors.username ? '#e74c3c' : '#3498db';
-              e.target.style.boxShadow = `0 0 0 3px ${errors.username ? 'rgba(231, 76, 60, 0.1)' : 'rgba(52, 152, 219, 0.1)'}`;
-              e.target.style.backgroundColor = 'white';
-            }}
-            onBlur={(e) => {
-              e.target.style.borderColor = errors.username ? '#e74c3c' : 'rgba(44, 62, 80, 0.1)';
-              e.target.style.boxShadow = 'none';
-              e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
-            }}
+            placeholder="Enter username (letters, numbers, underscores)"
           />
           {errors.username && (
-            <div style={{
-              marginTop: '0.5rem',
-              color: '#e74c3c',
-              fontSize: '0.8rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.25rem'
-            }}>
+            <div className="form-error">
               <span>⚠️</span>
               {errors.username}
             </div>
           )}
         </div>
 
-        {/* Password Field */}
-        <div>
-          <label style={{
-            display: 'block',
-            marginBottom: '0.5rem',
-            color: '#2c3e50',
-            fontSize: '0.9rem',
-            fontWeight: '600'
-          }}>
-            🔒 Password
-          </label>
+        {/* Password */}
+        <div className="form-field">
+          <label className="form-label">🔒 Password</label>
           <input
             type="password"
+            className={`form-input ${errors.password ? 'error' : ''}`}
             value={formData.password}
             onChange={(e) => handleInputChange('password', e.target.value)}
-            placeholder="Enter password (minimum 6 characters)"
-            style={{
-              width: '100%',
-              padding: '1rem',
-              border: `2px solid ${errors.password ? '#e74c3c' : 'rgba(44, 62, 80, 0.1)'}`,
-              borderRadius: '12px',
-              fontSize: '1rem',
-              transition: 'all 0.3s ease',
-              outline: 'none',
-              backgroundColor: 'rgba(255, 255, 255, 0.8)',
-              boxSizing: 'border-box'
-            }}
-            onFocus={(e) => {
-              e.target.style.borderColor = errors.password ? '#e74c3c' : '#3498db';
-              e.target.style.boxShadow = `0 0 0 3px ${errors.password ? 'rgba(231, 76, 60, 0.1)' : 'rgba(52, 152, 219, 0.1)'}`;
-              e.target.style.backgroundColor = 'white';
-            }}
-            onBlur={(e) => {
-              e.target.style.borderColor = errors.password ? '#e74c3c' : 'rgba(44, 62, 80, 0.1)';
-              e.target.style.boxShadow = 'none';
-              e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
-            }}
+            placeholder="Enter password (min 6 characters)"
           />
           {errors.password && (
-            <div style={{
-              marginTop: '0.5rem',
-              color: '#e74c3c',
-              fontSize: '0.8rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.25rem'
-            }}>
+            <div className="form-error">
               <span>⚠️</span>
               {errors.password}
             </div>
           )}
         </div>
 
-        {/* Confirm Password Field */}
-        <div>
-          <label style={{
-            display: 'block',
-            marginBottom: '0.5rem',
-            color: '#2c3e50',
-            fontSize: '0.9rem',
-            fontWeight: '600'
-          }}>
-            🔒 Confirm Password
-          </label>
+        {/* Confirm Password */}
+        <div className="form-field">
+          <label className="form-label">🔒 Confirm Password</label>
           <input
             type="password"
+            className={`form-input ${errors.confirmPassword ? 'error' : ''}`}
             value={formData.confirmPassword}
             onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
             placeholder="Confirm your password"
-            style={{
-              width: '100%',
-              padding: '1rem',
-              border: `2px solid ${errors.confirmPassword ? '#e74c3c' : 'rgba(44, 62, 80, 0.1)'}`,
-              borderRadius: '12px',
-              fontSize: '1rem',
-              transition: 'all 0.3s ease',
-              outline: 'none',
-              backgroundColor: 'rgba(255, 255, 255, 0.8)',
-              boxSizing: 'border-box'
-            }}
-            onFocus={(e) => {
-              e.target.style.borderColor = errors.confirmPassword ? '#e74c3c' : '#3498db';
-              e.target.style.boxShadow = `0 0 0 3px ${errors.confirmPassword ? 'rgba(231, 76, 60, 0.1)' : 'rgba(52, 152, 219, 0.1)'}`;
-              e.target.style.backgroundColor = 'white';
-            }}
-            onBlur={(e) => {
-              e.target.style.borderColor = errors.confirmPassword ? '#e74c3c' : 'rgba(44, 62, 80, 0.1)';
-              e.target.style.boxShadow = 'none';
-              e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
-            }}
           />
           {errors.confirmPassword && (
-            <div style={{
-              marginTop: '0.5rem',
-              color: '#e74c3c',
-              fontSize: '0.8rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.25rem'
-            }}>
+            <div className="form-error">
               <span>⚠️</span>
               {errors.confirmPassword}
             </div>
@@ -315,162 +154,52 @@ export default function UserCreationForm({ onUserCreated }) {
         </div>
 
         {/* Role Selection */}
-        <div>
-          <label style={{
-            display: 'block',
-            marginBottom: '0.5rem',
-            color: '#2c3e50',
-            fontSize: '0.9rem',
-            fontWeight: '600'
-          }}>
-            🎭 User Role
-          </label>
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            {['teacher', 'superadmin'].map((role) => (
+        <div className="form-field">
+          <label className="form-label">🎭 User Role</label>
+          <div className="role-selector">
+            {roles.map((role) => (
               <label
-                key={role}
-                style={{
-                  flex: 1,
-                  padding: '1rem',
-                  border: `2px solid ${formData.role === role ? '#3498db' : 'rgba(44, 62, 80, 0.1)'}`,
-                  borderRadius: '12px',
-                  cursor: 'pointer',
-                  transition: 'all 0.3s ease',
-                  backgroundColor: formData.role === role ? 'rgba(52, 152, 219, 0.1)' : 'rgba(255, 255, 255, 0.8)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: '0.5rem'
-                }}
-                onMouseOver={(e) => {
-                  if (formData.role !== role) {
-                    e.target.style.borderColor = '#3498db';
-                    e.target.style.backgroundColor = 'rgba(52, 152, 219, 0.05)';
-                  }
-                }}
-                onMouseOut={(e) => {
-                  if (formData.role !== role) {
-                    e.target.style.borderColor = 'rgba(44, 62, 80, 0.1)';
-                    e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
-                  }
-                }}
+                key={role.id}
+                className={`role-option ${formData.role === role.id ? 'selected' : ''}`}
               >
                 <input
                   type="radio"
                   name="role"
-                  value={role}
-                  checked={formData.role === role}
+                  value={role.id}
+                  checked={formData.role === role.id}
                   onChange={(e) => handleInputChange('role', e.target.value)}
-                  style={{ display: 'none' }}
                 />
-                <div style={{ fontSize: '1.5rem' }}>
-                  {getRoleIcon(role)}
-                </div>
-                <div style={{
-                  fontSize: '0.9rem',
-                  fontWeight: '600',
-                  color: formData.role === role ? '#3498db' : '#2c3e50',
-                  textAlign: 'center'
-                }}>
-                  {role === 'superadmin' ? 'Super Admin' : 'Teacher'}
-                </div>
-                <div style={{
-                  fontSize: '0.75rem',
-                  color: '#7f8c8d',
-                  textAlign: 'center',
-                  lineHeight: '1.2'
-                }}>
-                  {getRoleDescription(role)}
+                <span className="role-icon">{role.icon}</span>
+                <div>
+                  <div className="role-title">{role.title}</div>
+                  <div className="role-desc">{role.desc}</div>
                 </div>
               </label>
             ))}
           </div>
         </div>
 
-        {/* Message Display */}
+        {/* Message */}
         {message && (
-          <div style={{
-            padding: '1rem',
-            backgroundColor: message.includes('✅') 
-              ? 'rgba(39, 174, 96, 0.1)' 
-              : 'rgba(231, 76, 60, 0.1)',
-            border: `1px solid ${message.includes('✅') 
-              ? 'rgba(39, 174, 96, 0.2)' 
-              : 'rgba(231, 76, 60, 0.2)'}`,
-            borderRadius: '8px',
-            color: message.includes('✅') ? '#27ae60' : '#e74c3c',
-            fontSize: '0.9rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem'
-          }}>
+          <div className={`form-message ${message.includes('✅') ? 'success' : 'error'}`}>
             {message}
           </div>
         )}
 
         {/* Submit Button */}
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            width: '100%',
-            padding: '1rem',
-            background: loading 
-              ? 'linear-gradient(135deg, #95a5a6, #7f8c8d)' 
-              : 'linear-gradient(135deg, #3498db, #2980b9)',
-            color: 'white',
-            border: 'none',
-            borderRadius: '12px',
-            fontSize: '1.1rem',
-            fontWeight: '600',
-            cursor: loading ? 'not-allowed' : 'pointer',
-            transition: 'all 0.3s ease',
-            boxShadow: '0 8px 25px rgba(52, 152, 219, 0.3)',
-            position: 'relative',
-            overflow: 'hidden'
-          }}
-          onMouseOver={(e) => {
-            if (!loading) {
-              e.target.style.transform = 'translateY(-2px)';
-              e.target.style.boxShadow = '0 12px 35px rgba(52, 152, 219, 0.4)';
-            }
-          }}
-          onMouseOut={(e) => {
-            if (!loading) {
-              e.target.style.transform = 'translateY(0)';
-              e.target.style.boxShadow = '0 8px 25px rgba(52, 152, 219, 0.3)';
-            }
-          }}
-        >
+        <button type="submit" className="submit-btn" disabled={loading}>
           {loading ? (
-            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-              <span style={{
-                width: '16px',
-                height: '16px',
-                border: '2px solid rgba(255, 255, 255, 0.3)',
-                borderTop: '2px solid white',
-                borderRadius: '50%',
-                animation: 'spin 1s linear infinite'
-              }} />
+            <>
+              <span className="spinner" style={{ width: 16, height: 16 }} />
               Creating User...
-            </span>
+            </>
           ) : (
-            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-              <span>🚀</span>
-              Create User
-            </span>
+            <>
+              🚀 Create User
+            </>
           )}
         </button>
       </form>
-
-      {/* CSS Animation */}
-      <style jsx>{`
-        @keyframes spin {
-          to {
-            transform: rotate(360deg);
-          }
-        }
-      `}</style>
     </div>
   );
 }

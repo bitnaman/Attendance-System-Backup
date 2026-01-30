@@ -1,0 +1,1154 @@
+/* ============================================
+   MOBILE-FIRST RESPONSIVE DESIGN SYSTEM
+   Comprehensive mobile optimization for all components
+   ============================================ */
+
+/* ===== BASE MOBILE VARIABLES ===== */
+:root {
+  /* Mobile-specific spacing */
+  --mobile-padding: 1rem;
+  --mobile-gap: 0.75rem;
+  --mobile-radius: 12px;
+  
+  /* Touch-friendly sizes */
+  --touch-target-min: 44px;
+  --input-height-mobile: 48px;
+  --btn-height-mobile: 48px;
+  
+  /* Safe areas for notched devices */
+  --safe-area-top: env(safe-area-inset-top, 0);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0);
+  --safe-area-left: env(safe-area-inset-left, 0);
+  --safe-area-right: env(safe-area-inset-right, 0);
+}
+
+/* ===== GLOBAL MOBILE FIXES ===== */
+html {
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  scroll-behavior: smooth;
+}
+
+body {
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Prevent horizontal scroll */
+#root, .app {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+/* ===== TOUCH-FRIENDLY INTERACTIONS ===== */
+@media (hover: none) and (pointer: coarse) {
+  /* Remove hover effects on touch devices */
+  .modern-btn:hover,
+  .beautified-tab:hover,
+  .student-card:hover,
+  .modern-card:hover {
+    transform: none;
+  }
+  
+  /* Add active states for touch */
+  .modern-btn:active {
+    transform: scale(0.98);
+    opacity: 0.9;
+  }
+  
+  .beautified-tab:active {
+    background: rgba(102, 126, 234, 0.15);
+  }
+}
+
+/* ===== MOBILE NAVIGATION (BOTTOM NAV) ===== */
+@media (max-width: 768px) {
+  /* Premium Fixed Bottom Navigation Bar */
+  .beautified-tabs {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: auto !important;
+    z-index: 1000;
+    flex-direction: row !important;
+    justify-content: space-evenly;
+    align-items: stretch;
+    padding: 0.625rem 0.5rem;
+    padding-bottom: calc(0.625rem + var(--safe-area-bottom));
+    background: linear-gradient(180deg, 
+      rgba(255, 255, 255, 0.98) 0%, 
+      rgba(248, 250, 255, 0.99) 100%);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border-top: 1px solid rgba(102, 126, 234, 0.12);
+    border-radius: 24px 24px 0 0;
+    box-shadow: 
+      0 -8px 32px rgba(102, 126, 234, 0.12),
+      0 -2px 8px rgba(0, 0, 0, 0.04),
+      inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    margin: 0;
+    gap: 0.35rem;
+    overflow-x: visible;
+    animation: none;
+  }
+  
+  /* Hide scrollbar but allow horizontal scroll if needed */
+  .beautified-tabs::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* Individual Tab Styling */
+  .beautified-tab {
+    flex: 1;
+    min-width: 56px;
+    max-width: 80px;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.5rem 0.5rem 0.4rem;
+    margin: 0;
+    border-radius: 16px;
+    font-size: 0.68rem;
+    min-height: 54px;
+    background: transparent;
+    color: #6b7280;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: visible;
+  }
+  
+  /* Remove animations on mobile */
+  .beautified-tab::before,
+  .beautified-tab::after {
+    display: none;
+  }
+  
+  /* Tab Icon */
+  .beautified-tab .tab-icon {
+    font-size: 1.35rem;
+    margin: 0;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    filter: none;
+    animation: none;
+  }
+  
+  /* Tab Label */
+  .beautified-tab .tab-label {
+    display: block;
+    font-size: 0.6rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    letter-spacing: 0.01em;
+    opacity: 0.85;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  /* Hover/Press State */
+  .beautified-tab:active {
+    transform: scale(0.92);
+    background: rgba(102, 126, 234, 0.08);
+  }
+  
+  /* Active Tab Styling - Premium Look */
+  .beautified-tab.active {
+    background: linear-gradient(145deg, 
+      rgba(102, 126, 234, 0.12) 0%, 
+      rgba(118, 75, 162, 0.08) 100%);
+    color: var(--primary-color);
+    transform: translateY(-2px);
+    box-shadow: 
+      0 4px 16px rgba(102, 126, 234, 0.2),
+      inset 0 0 0 1px rgba(102, 126, 234, 0.15);
+    animation: none;
+  }
+  
+  .beautified-tab.active .tab-icon {
+    color: var(--primary-color);
+    transform: scale(1.1);
+    filter: drop-shadow(0 2px 4px rgba(102, 126, 234, 0.3));
+    animation: none;
+  }
+  
+  .beautified-tab.active .tab-label {
+    opacity: 1;
+    font-weight: 700;
+    color: var(--primary-color);
+  }
+  
+  /* Active indicator dot */
+  .beautified-tab.active::after {
+    content: '';
+    display: block;
+    position: absolute;
+    bottom: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px;
+    height: 4px;
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    border-radius: 50%;
+    box-shadow: 0 0 8px rgba(102, 126, 234, 0.5);
+  }
+  
+  /* Remove nav indicator on mobile */
+  .beautified-tab .nav-indicator {
+    display: none;
+  }
+  
+  /* Content spacing for bottom nav */
+  .main-content,
+  .content-container,
+  .app-content {
+    padding-bottom: calc(85px + var(--safe-area-bottom)) !important;
+    margin-bottom: 0 !important;
+  }
+}
+
+/* ===== MOBILE HEADER ===== */
+@media (max-width: 768px) {
+  .modern-header {
+    padding: 0.75rem var(--mobile-padding);
+    padding-top: calc(0.75rem + var(--safe-area-top));
+  }
+  
+  .header-content {
+    flex-direction: row;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0;
+  }
+  
+  .logo-container {
+    flex-direction: row;
+    gap: 0.5rem;
+  }
+  
+  .logo-icon {
+    font-size: 1.75rem !important;
+  }
+  
+  .brand-text h1 {
+    font-size: 1.1rem !important;
+    text-align: left;
+  }
+  
+  .brand-subtitle {
+    display: none;
+  }
+  
+  .modern-stats {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    gap: 0.35rem;
+    width: auto;
+  }
+  
+  .mini-stat {
+    flex: 0 0 auto;
+    min-width: auto;
+    max-width: none;
+    padding: 0.5rem;
+    justify-content: center;
+    animation: none;
+    gap: 0;
+  }
+  
+  .mini-stat .stat-icon {
+    font-size: 1rem;
+  }
+  
+  .mini-stat .stat-details {
+    display: none;
+  }
+}
+
+/* ===== MOBILE FORMS ===== */
+@media (max-width: 768px) {
+  .upload-form,
+  .student-form,
+  .modern-form {
+    padding: var(--mobile-padding);
+    margin: var(--mobile-padding);
+    border-radius: var(--mobile-radius);
+    max-width: calc(100% - 2 * var(--mobile-padding));
+  }
+  
+  .form-row {
+    grid-template-columns: 1fr !important;
+    gap: var(--mobile-gap);
+  }
+  
+  .form-group {
+    margin-bottom: 1rem;
+  }
+  
+  .form-group label {
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    padding: 0.875rem 1rem;
+    font-size: 16px !important; /* Prevents iOS zoom */
+    min-height: var(--input-height-mobile);
+    border-radius: var(--mobile-radius);
+  }
+  
+  .form-group input[type="file"] {
+    padding: 1rem;
+  }
+  
+  .form-actions,
+  .modern-actions {
+    flex-direction: column;
+    gap: var(--mobile-gap);
+  }
+  
+  .form-actions button,
+  .modern-actions button,
+  .submit-btn {
+    width: 100%;
+    min-height: var(--btn-height-mobile);
+  }
+  
+  .filter-section {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--mobile-gap);
+  }
+  
+  .filter-section select {
+    width: 100%;
+    min-width: auto;
+  }
+}
+
+/* ===== MOBILE CARDS - Compact Tile Layout ===== */
+@media (max-width: 768px) {
+  .modern-grid,
+  .students-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.75rem;
+    padding: 0.75rem;
+  }
+  
+  .student-card,
+  .modern-card {
+    padding: 0.75rem;
+    border-radius: 14px;
+    margin: 0;
+    min-height: auto;
+  }
+  
+  /* Compact card layout for mobile */
+  .student-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 0.5rem;
+  }
+  
+  .student-avatar {
+    margin: 0;
+    margin-bottom: 0.25rem;
+  }
+  
+  .student-photo,
+  .modern-photo {
+    width: 56px !important;
+    height: 56px !important;
+    margin-bottom: 0;
+    display: block !important;
+    object-fit: cover;
+  }
+  
+  .photo-container {
+    width: 56px;
+    height: 56px;
+    position: relative;
+    display: block;
+  }
+  
+  /* Status ring is a small indicator, not covering photo */
+  .status-ring {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 16px !important;
+    height: 16px !important;
+  }
+  
+  .status-dot {
+    width: 5px;
+    height: 5px;
+  }
+  
+  .student-info {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+  }
+  
+  .student-name {
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin: 0;
+    line-height: 1.2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    word-break: break-word;
+  }
+  
+  .student-name .name-icon {
+    font-size: 0.9rem;
+  }
+  
+  /* Collapsed info - show class only */
+  .collapsed-info {
+    width: 100%;
+  }
+  
+  .collapsed-info .info-item {
+    padding: 0.35rem 0.5rem;
+    background: rgba(99, 102, 241, 0.08);
+    border-radius: 8px;
+    margin-top: 0.25rem;
+  }
+  
+  .collapsed-info .info-item .info-icon {
+    font-size: 0.75rem;
+  }
+  
+  .collapsed-info .info-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .collapsed-info .info-label {
+    font-size: 0.55rem;
+    display: none;
+  }
+  
+  .collapsed-info .info-value {
+    font-size: 0.65rem;
+    text-align: center;
+  }
+  
+  /* Hide expand indicator on mobile collapsed view */
+  .student-card.collapsed .expand-indicator {
+    position: absolute;
+    top: 0.35rem;
+    right: 0.35rem;
+  }
+  
+  .expand-indicator {
+    position: absolute;
+    top: 0.35rem;
+    right: 0.35rem;
+  }
+  
+  .expand-icon {
+    font-size: 0.6rem;
+    opacity: 0.5;
+  }
+  
+  /* Card badge hidden in collapsed mobile view */
+  .student-card.collapsed .card-badge {
+    display: none;
+  }
+  
+  .info-grid {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+    width: 100%;
+  }
+  
+  .info-item {
+    padding: 0.5rem;
+    font-size: 0.75rem;
+  }
+  
+  .info-label {
+    font-size: 0.6rem;
+  }
+  
+  .info-value {
+    font-size: 0.75rem;
+  }
+  
+  /* Card actions - compact for mobile */
+  .card-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    padding: 0.5rem 0 0;
+    justify-content: center;
+  }
+  
+  .card-actions button,
+  .action-btn {
+    padding: 0.35rem 0.5rem;
+    font-size: 0.65rem;
+    border-radius: 6px;
+    min-height: auto;
+  }
+  
+  .action-btn .btn-icon {
+    font-size: 0.8rem;
+  }
+  
+  .action-btn .btn-text {
+    display: none;
+  }
+  
+  .card-header {
+    padding: 0.75rem;
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .card-body {
+    padding: 0.75rem;
+  }
+}
+
+/* Even smaller screens - still 2 columns but more compact */
+@media (max-width: 400px) {
+  .students-grid {
+    gap: 0.5rem;
+    padding: 0.5rem;
+  }
+  
+  .student-card {
+    padding: 0.5rem;
+    border-radius: 12px;
+  }
+  
+  .student-photo,
+  .modern-photo {
+    width: 48px !important;
+    height: 48px !important;
+  }
+  
+  .photo-container {
+    width: 48px;
+    height: 48px;
+  }
+  
+  .status-ring {
+    width: 14px !important;
+    height: 14px !important;
+  }
+  
+  .student-name {
+    font-size: 0.75rem;
+  }
+  
+  .collapsed-info .info-value {
+    font-size: 0.6rem;
+  }
+}
+
+/* ===== EXPANDED STUDENT CARD - Mobile ===== */
+@media (max-width: 768px) {
+  .student-card.expanded {
+    grid-column: 1 / -1;
+    padding: 1rem;
+  }
+  
+  .student-card.expanded .student-photo {
+    width: 70px !important;
+    height: 70px !important;
+  }
+  
+  .student-card.expanded .photo-container {
+    width: 70px !important;
+    height: 70px !important;
+  }
+  
+  .student-card.expanded .status-ring {
+    width: 18px !important;
+    height: 18px !important;
+  }
+  
+  .student-card.expanded .student-name {
+    font-size: 1rem;
+  }
+  
+  .student-card.expanded .card-badge {
+    font-size: 0.7rem;
+    padding: 0.25rem 0.5rem;
+  }
+  
+  .student-card.expanded .info-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+  
+  .student-card.expanded .info-item {
+    padding: 0.5rem;
+    font-size: 0.75rem;
+  }
+  
+  .student-card.expanded .info-label {
+    font-size: 0.55rem;
+  }
+  
+  .student-card.expanded .info-value {
+    font-size: 0.7rem;
+    word-break: break-word;
+  }
+  
+  .student-card.expanded .card-actions {
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+  
+  .student-card.expanded .action-btn {
+    flex: 1 1 calc(50% - 0.2rem);
+    min-width: 0;
+    padding: 0.5rem;
+    font-size: 0.7rem;
+  }
+  
+  .student-card.expanded .action-btn .btn-text {
+    display: inline;
+    font-size: 0.65rem;
+  }
+}
+
+/* ===== STUDENT DETAIL MODAL - Mobile ===== */
+@media (max-width: 768px) {
+  /* Modal overlay - fullscreen */
+  .student-detail-overlay {
+    padding: 0 !important;
+    align-items: stretch !important;
+    justify-content: stretch !important;
+    overflow: hidden !important;
+  }
+  
+  /* Modal content - fullscreen on mobile */
+  .student-detail-modal {
+    max-width: 100% !important;
+    width: 100% !important;
+    max-height: 100% !important;
+    height: 100% !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+  }
+  
+  /* Fallback: Target inline styled elements too */
+  div[style*="position: fixed"][style*="zIndex: 9999"],
+  div[style*="position: fixed"][style*="z-index: 9999"] {
+    padding: 0 !important;
+    align-items: stretch !important;
+    justify-content: stretch !important;
+    overflow: hidden !important;
+  }
+  
+  /* Target the modal content container */
+  div[style*="position: fixed"] > div[style*="maxWidth: 1000"],
+  div[style*="position: fixed"] > div[style*="max-width: 1000px"],
+  div[style*="position: fixed"] > div[style*="backgroundColor: white"][style*="borderRadius"],
+  div[style*="position: fixed"] > div[style*="background-color: white"][style*="border-radius"] {
+    max-width: 100% !important;
+    width: 100% !important;
+    max-height: 100% !important;
+    height: 100% !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  
+  /* Modal header - STICKY at top */
+  div[style*="position: fixed"] div[style*="padding: 20"][style*="borderBottom"],
+  div[style*="position: fixed"] div[style*="padding: 20px"][style*="border-bottom"] {
+    padding: 12px 12px !important;
+    flex-wrap: nowrap !important;
+    gap: 8px;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 10 !important;
+    background: white !important;
+    flex-shrink: 0 !important;
+  }
+  
+  div[style*="position: fixed"] div[style*="padding: 20"] h2 {
+    font-size: 1rem !important;
+    margin: 0 !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  div[style*="position: fixed"] div[style*="padding: 20"] p {
+    font-size: 0.7rem !important;
+    margin: 2px 0 0 0 !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  /* Close button - More prominent */
+  div[style*="position: fixed"] button[style*="backgroundColor: #dc3545"],
+  div[style*="position: fixed"] button[style*="background-color: #dc3545"] {
+    padding: 8px 14px !important;
+    font-size: 0.85rem !important;
+    flex-shrink: 0 !important;
+    font-weight: 600 !important;
+  }
+  
+  /* Modal tabs - horizontal scroll */
+  div[style*="position: fixed"] div[style*="backgroundColor: #f8f9fa"],
+  div[style*="position: fixed"] div[style*="background-color: #f8f9fa"] {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap !important;
+  }
+  
+  div[style*="position: fixed"] div[style*="backgroundColor: #f8f9fa"] button,
+  div[style*="position: fixed"] div[style*="background-color: #f8f9fa"] button {
+    padding: 8px 10px !important;
+    font-size: 0.75rem !important;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  
+  /* Modal content area - scrollable */
+  div[style*="position: fixed"] div[style*="overflow: auto"][style*="padding: 20"] {
+    padding: 10px !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+  }
+  
+  /* Overview grid - SINGLE COLUMN on mobile */
+  div[style*="position: fixed"] div[style*="gridTemplateColumns: 200px"],
+  div[style*="position: fixed"] div[style*="grid-template-columns: 200px"] {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+  }
+  
+  /* Student photo in modal - centered */
+  div[style*="position: fixed"] img[style*="height: 200"],
+  div[style*="position: fixed"] img[style*="objectFit: cover"] {
+    width: 100px !important;
+    height: 100px !important;
+    margin: 0 auto 10px !important;
+    display: block !important;
+    border-radius: 50% !important;
+  }
+  
+  /* Student Information heading */
+  div[style*="position: fixed"] h3 {
+    font-size: 1rem !important;
+    margin: 0 0 8px 0 !important;
+  }
+  
+  /* Info grid in modal - SINGLE COLUMN to prevent overflow */
+  div[style*="position: fixed"] div[style*="gridTemplateColumns: 1fr 1fr"][style*="gap: 16"],
+  div[style*="position: fixed"] div[style*="grid-template-columns: 1fr 1fr"] {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 6px !important;
+  }
+  
+  div[style*="position: fixed"] div[style*="gridTemplateColumns: 1fr 1fr"] > div,
+  div[style*="position: fixed"] div[style*="grid-template-columns: 1fr 1fr"] > div {
+    font-size: 0.85rem !important;
+    padding: 6px 0 !important;
+    border-bottom: 1px solid #f0f0f0;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+  }
+  
+  /* Stats grid in modal - 2 columns */
+  div[style*="position: fixed"] div[style*="minmax(200px"],
+  div[style*="position: fixed"] div[style*="minmax(150px"] {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+  
+  /* Stat cards */
+  div[style*="position: fixed"] div[style*="padding: 20"][style*="backgroundColor: #e3f2fd"],
+  div[style*="position: fixed"] div[style*="padding: 20"][style*="backgroundColor: #e8f5e9"],
+  div[style*="position: fixed"] div[style*="padding: 20"][style*="backgroundColor: #fff3e0"],
+  div[style*="position: fixed"] div[style*="padding: 20"][style*="backgroundColor: #fce4ec"],
+  div[style*="position: fixed"] div[style*="padding: 16"][style*="backgroundColor: #e3f2fd"],
+  div[style*="position: fixed"] div[style*="padding: 16"][style*="backgroundColor: #e8f5e9"],
+  div[style*="position: fixed"] div[style*="padding: 16"][style*="backgroundColor: #fff3e0"],
+  div[style*="position: fixed"] div[style*="padding: 16"][style*="backgroundColor: #fce4ec"] {
+    padding: 10px !important;
+  }
+  
+  div[style*="position: fixed"] div[style*="fontSize: 24"],
+  div[style*="position: fixed"] div[style*="font-size: 24px"] {
+    font-size: 1.1rem !important;
+  }
+  
+  /* Attendance Summary heading */
+  div[style*="position: fixed"] div[style*="marginBottom: 30"],
+  div[style*="position: fixed"] div[style*="margin-bottom: 30px"] {
+    margin-bottom: 15px !important;
+  }
+}
+
+/* ===== MOBILE BUTTONS ===== */
+@media (max-width: 768px) {
+  .modern-btn {
+    padding: 0.875rem 1.25rem;
+    font-size: 0.9rem;
+    min-height: var(--btn-height-mobile);
+    width: 100%;
+  }
+  
+  .modern-btn.small {
+    padding: 0.625rem 1rem;
+    min-height: 40px;
+    font-size: 0.85rem;
+  }
+  
+  .submit-btn {
+    padding: 1rem 2rem;
+    font-size: 1rem;
+    min-width: auto;
+    width: 100%;
+    margin: 1rem 0;
+  }
+  
+  /* Button groups stack vertically */
+  .button-group,
+  .btn-group {
+    flex-direction: column;
+    width: 100%;
+  }
+}
+
+/* ===== MOBILE TABLES ===== */
+@media (max-width: 768px) {
+  .table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 0 calc(-1 * var(--mobile-padding));
+    padding: 0 var(--mobile-padding);
+  }
+  
+  table {
+    min-width: 600px;
+  }
+  
+  th, td {
+    padding: 0.75rem 0.5rem;
+    font-size: 0.85rem;
+  }
+  
+  /* Card-style table for mobile */
+  .mobile-table-cards {
+    display: block;
+  }
+  
+  .mobile-table-cards thead {
+    display: none;
+  }
+  
+  .mobile-table-cards tbody tr {
+    display: block;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background: white;
+    border-radius: var(--mobile-radius);
+    box-shadow: var(--shadow);
+  }
+  
+  .mobile-table-cards tbody td {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border-color);
+  }
+  
+  .mobile-table-cards tbody td:last-child {
+    border-bottom: none;
+  }
+  
+  .mobile-table-cards tbody td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+}
+
+/* ===== MOBILE MODALS ===== */
+@media (max-width: 768px) {
+  .modal-overlay {
+    padding: var(--mobile-padding);
+    align-items: flex-end;
+  }
+  
+  .modal-content,
+  .modal,
+  .edit-student-modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 90vh;
+    margin: 0;
+    border-radius: 20px 20px 0 0;
+    padding: 1.5rem var(--mobile-padding);
+    padding-bottom: calc(1.5rem + var(--safe-area-bottom));
+  }
+  
+  .modal-header {
+    padding: 1rem 0;
+  }
+  
+  .modal-body {
+    padding: 1rem 0;
+    max-height: 60vh;
+    overflow-y: auto;
+  }
+  
+  .modal-footer {
+    padding: 1rem 0;
+    flex-direction: column;
+    gap: var(--mobile-gap);
+  }
+  
+  .modal-footer button {
+    width: 100%;
+  }
+}
+
+/* ===== MOBILE ATTENDANCE ===== */
+@media (max-width: 768px) {
+  .attendance-container {
+    padding: var(--mobile-padding);
+  }
+  
+  .attendance-grid {
+    grid-template-columns: 1fr !important;
+  }
+  
+  .attendance-card {
+    padding: 1rem;
+  }
+  
+  .attendance-stats {
+    flex-direction: column;
+    gap: var(--mobile-gap);
+  }
+  
+  .stat-card {
+    padding: 1rem;
+    text-align: center;
+  }
+  
+  .camera-container {
+    height: 250px;
+    border-radius: var(--mobile-radius);
+  }
+  
+  .webcam-preview {
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+/* ===== MOBILE SECTION HEADERS ===== */
+@media (max-width: 768px) {
+  .section-header {
+    flex-direction: column;
+    text-align: center;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    padding: 0 var(--mobile-padding);
+  }
+  
+  .section-icon {
+    font-size: 2rem;
+  }
+  
+  .section-title h2 {
+    font-size: 1.5rem;
+  }
+  
+  .section-title p {
+    font-size: 0.9rem;
+  }
+}
+
+/* ===== MOBILE UTILITY CLASSES ===== */
+@media (max-width: 768px) {
+  /* Hide on mobile */
+  .hide-mobile,
+  .desktop-only {
+    display: none !important;
+  }
+  
+  /* Show only on mobile */
+  .show-mobile,
+  .mobile-only {
+    display: block !important;
+  }
+  
+  /* Full width on mobile */
+  .mobile-full-width {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  
+  /* Stack on mobile */
+  .mobile-stack {
+    flex-direction: column !important;
+  }
+  
+  /* Center on mobile */
+  .mobile-center {
+    text-align: center !important;
+    justify-content: center !important;
+    align-items: center !important;
+  }
+}
+
+/* ===== SMALL PHONES (iPhone SE, etc.) ===== */
+@media (max-width: 375px) {
+  :root {
+    --mobile-padding: 0.75rem;
+    --mobile-gap: 0.5rem;
+  }
+  
+  .beautified-tab {
+    min-width: 50px;
+    padding: 0.4rem;
+  }
+  
+  .beautified-tab .tab-label {
+    display: none;
+  }
+  
+  .beautified-tab .tab-icon {
+    font-size: 1.1rem;
+  }
+  
+  .brand-text h1 {
+    font-size: 1.25rem !important;
+  }
+  
+  .section-title h2 {
+    font-size: 1.25rem;
+  }
+  
+  .student-card {
+    padding: 1rem;
+  }
+  
+  .student-photo,
+  .modern-photo {
+    width: 60px !important;
+    height: 60px !important;
+  }
+}
+
+/* ===== LANDSCAPE MOBILE ===== */
+@media (max-height: 500px) and (orientation: landscape) {
+  .beautified-tabs {
+    padding: 0.25rem var(--mobile-padding);
+  }
+  
+  .beautified-tab {
+    padding: 0.375rem;
+    min-height: 36px;
+  }
+  
+  .beautified-tab .tab-label {
+    display: none;
+  }
+  
+  .modern-header {
+    padding: 0.75rem var(--mobile-padding);
+  }
+  
+  .modal-content {
+    max-height: 100vh;
+    border-radius: 0;
+  }
+}
+
+/* ===== TABLET OPTIMIZATIONS ===== */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .modern-grid,
+  .students-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .beautified-tab {
+    min-width: 100px;
+    padding: 0.75rem 1rem;
+  }
+  
+  .form-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* ===== PRINT STYLES ===== */
+@media print {
+  .beautified-tabs,
+  .modern-header,
+  .modal-overlay {
+    display: none !important;
+  }
+  
+  .main-content {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+}
+
+/* ===== ACCESSIBILITY ===== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  .form-group input,
+  .form-group select {
+    border-width: 2px;
+  }
+  
+  .modern-btn {
+    border: 2px solid currentColor;
+  }
+}
+
+/* Dark mode preference */
+@media (prefers-color-scheme: dark) {
+  .beautified-tabs {
+    background: rgba(30, 41, 59, 0.98);
+  }
+  
+  .beautified-tab {
+    color: #e2e8f0;
+  }
+}

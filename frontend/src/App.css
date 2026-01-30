@@ -17,11 +17,14 @@
 @import './styles/attendance.css';
 @import './styles/attendance-stats.css';
 @import './styles/attendance-export.css';
+@import './styles/mark-attendance.css';
 @import './styles/states.css';
 @import './styles/utilities.css';
 @import './styles/register-student.css';
 @import './styles/manage-students.css';
 @import './styles/backup-manager.css';
+/* Mobile responsive - must be last to override other styles */
+@import './styles/mobile-responsive.css';
 
 /* Model Compatibility Warning Banner */
 .compatibility-warning-banner {
@@ -201,11 +204,12 @@
   border-radius: 0;
   box-shadow: none;
   border: none;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   min-height: calc(100vh - 200px);
   width: 100%;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  animation: contentBreathing 8s ease-in-out infinite;
+  -webkit-overflow-scrolling: touch;
 }
 
 @keyframes contentBreathing {
@@ -247,10 +251,25 @@
   z-index: 1;
   animation: slideInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1);
   max-width: 100%;
-  overflow-x: auto;
+  overflow-x: hidden;
   padding: 2rem;
   width: 100%;
   box-sizing: border-box;
+}
+
+/* Mobile-specific tab content */
+@media (max-width: 768px) {
+  .tab-content {
+    padding: 1rem;
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0));
+  }
+}
+
+@media (max-width: 480px) {
+  .tab-content {
+    padding: 0.75rem;
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0));
+  }
 }
 
 @keyframes slideInUp {

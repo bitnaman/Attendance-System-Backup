@@ -1,945 +1,448 @@
-# 🎓 BTech Attendance System v2.0
+# 🎓 Bharati Facify - Facial Attendance System
 
-A modern, intelligent attendance management system built specifically for IT & AIML departments. Features advanced facial recognition technology, flexible cloud storage support, configurable logging, responsive web interface, and comprehensive student management capabilities.
+> AI-powered facial recognition attendance system for educational institutions, designed for BTech IT & AIML programs.
 
-![System Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
-![Frontend](https://img.shields.io/badge/Frontend-React%2018-61dafb)
-![Backend](https://img.shields.io/badge/Backend-FastAPI%206.0-009688)
-![Database](https://img.shields.io/badge/Database-SQLite-003B57)
-![AI](https://img.shields.io/badge/AI-DeepFace%20%7C%20Facenet512-purple)
-![Storage](https://img.shields.io/badge/Storage-Local%20%7C%20AWS%20S3-orange)
-![Logging](https://img.shields.io/badge/Logging-Configurable%20Throttled-blue)
-![Version](https://img.shields.io/badge/Version-2.0-blue)
-
-## 🚀 New in v2.0
-
-### ⚡ **Enhanced Features**
-- **🔧 Configurable Logging System**: Control log frequency with millisecond precision
-- **☁️ Environment-Based Storage**: Seamlessly switch between local and AWS S3 storage
-- **🎯 Smart Throttling**: Reduce log noise with intelligent message grouping
-- **🔐 Enhanced Security**: Improved error handling and credential management
-- **📊 Advanced Monitoring**: Comprehensive request/response tracking
-- **🚀 Performance Optimization**: GPU acceleration with CUDA support
-
-## ✨ Core Features
-
-### 🎯 **Smart Attendance Management**
-- **Advanced Face Recognition**: Facenet512 model with 99%+ accuracy and GPU acceleration
-- **🆕 Accuracy Improvements**: Ensemble models, preprocessing, and quality filtering for 97-99.5% accuracy
-- **Class-Based Organization**: Organize students by BTech IT & AIML programs and sections
-- **Multi-Photo Registration**: Register students with multiple photos for robust recognition
-- **🆕 Data Augmentation**: Generate synthetic variations during registration for improved robustness
-- **One-Click Attendance**: Upload a single classroom photo to mark all present students
-- **Real-time Processing**: GPU-accelerated face detection with MTCNN backend
-- **🆕 Quality Filtering**: Automatically detect and handle blurry/occluded faces
-- **Session Management**: Complete history tracking with detailed analytics
-- **Class Filtering**: Mark attendance for specific classes and sections
-
-### ☁️ **Flexible Storage & Deployment**
-- **Dual Storage Support**: Local filesystem and AWS S3 cloud storage
-- **Environment Configuration**: Switch storage types via `.env` variables
-- **Scalable Architecture**: Deploy locally or in the cloud with the same codebase
-- **Photo URL Management**: Automatic URL generation for both storage types
-- **Migration Tools**: Easy data migration between storage types
-
-### 🔧 **Configurable Logging System**
-- **Time-Based Throttling**: Control log frequency with millisecond precision
-- **Category-Based Logging**: Different endpoints get different logging strategies
-- **Suppression Counting**: Track and report suppressed similar messages
-- **Smart Prioritization**: Critical events bypass throttling
-- **Environment Control**: Adjust logging via `LOG_THROTTLE_MS` in `.env`
-
-### 🎨 **Modern Interface**
-- **Responsive Design**: Works seamlessly on desktop, tablet, and mobile
-- **Dark Theme**: Professional cosmic-themed UI with quantum gradients
-- **Real-time Feedback**: Live status updates and processing indicators
-- **Intuitive Navigation**: Tab-based interface with smooth animations
-- **Accessibility**: WCAG compliant with keyboard navigation support
-
-### 📊 **Management & Analytics**
-- **Student Dashboard**: Complete CRUD operations for student data
-- **Class Management**: Organize students by BTech programs (IT/AIML) and sections
-- **Attendance Analytics**: Detailed statistics and attendance patterns
-- **Database**: SQLite-based lightweight database with SQLAlchemy ORM
-- **Backup System**: Automated database and file backups
-- **Export Options**: Generate reports in multiple formats
-
-## 🏗️ Architecture
-
-```
-BTech Attendance System v2.0
-├── 🖥️  Frontend (React 18)
-│   ├── Smart Photo Upload
-│   ├── Real-time Processing
-│   ├── Student Management
-│   └── Analytics Dashboard
-│
-├── 🚀 Backend (FastAPI 6.0)
-│   ├── 🤖 AI Engine (Facenet512 + MTCNN)
-│   ├── 📊 SQLite Database
-│   ├── 🔧 Configurable Logging
-│   ├── ☁️  Storage Management (Local/S3)
-│   └── 🛡️  Enhanced Security
-│
-└── 📦 Storage Layer
-    ├── 🏠 Local File System
-    └── ☁️  AWS S3 Cloud Storage
-```
-
-## 🛠️ Technology Stack
-
-### Backend
-- **Framework**: FastAPI 6.0 with async support
-- **Language**: Python 3.10+
-- **AI/ML**: 
-  - DeepFace with Facenet512 model
-  - MTCNN for face detection
-  - TensorFlow with CUDA support
-- **Database**: SQLite with SQLAlchemy ORM
-- **Storage**: Local filesystem + AWS S3 support
-- **Logging**: Custom throttled logging system
-
-### Frontend
-- **Framework**: React 18
-- **Build Tools**: Create React App
-- **Styling**: CSS3 with dark theme
-- **State Management**: React Hooks
-
-### Infrastructure
-- **Database**: SQLite (built-in, lightweight)
-- **Storage**: Local + AWS S3
-- **Processing**: NVIDIA GPU acceleration
-- **Deployment**: Docker-ready with cloud support
-
-## ⚙️ Configuration
-
-### Environment Variables
-
-#### Backend Configuration (`.env`)
-```bash
-# Storage Configuration
-PHOTO_STORAGE_TYPE=local          # "local" or "s3"
-
-# Database Configuration  
-DB_FILE=attendance.db             # SQLite database file path
-
-# AWS S3 Configuration (for cloud storage)
-AWS_ACCESS_KEY_ID=your_aws_key
-AWS_SECRET_ACCESS_KEY=your_aws_secret
-AWS_REGION=us-east-1
-S3_BUCKET_NAME=your_bucket_name
-
-# Logging Configuration
-LOG_LEVEL=INFO
-LOG_THROTTLE_MS=2000              # Log throttling interval in milliseconds
-
-# Backend URL
-BACKEND_BASE_URL=http://localhost:8000
-```
-
-#### Frontend Configuration (`.env`)
-```bash
-# API Configuration
-REACT_APP_API_BASE=http://localhost:8000
-REACT_APP_PHOTO_BASE=http://localhost:8000
-
-# Application Info
-REACT_APP_NAME=BTech Attendance System
-REACT_APP_VERSION=2.0.0
-```
-
-### Logging Throttle Configuration
-
-Control log frequency with precision:
-```bash
-LOG_THROTTLE_MS=500      # Very verbose (every 500ms)
-LOG_THROTTLE_MS=2000     # Normal (every 2 seconds)  
-LOG_THROTTLE_MS=10000    # Quiet (every 10 seconds)
-LOG_THROTTLE_MS=30000    # Very quiet (every 30 seconds)
-```
-├── Frontend (React)          # http://localhost:3002
-│   ├── Modern UI Components
-│   ├── Responsive Design
-│   ├── Environment-based Config
-│   └── Real-time Updates
-│
-├── Backend (FastAPI)         # http://localhost:8000
-│   ├── RESTful API
-│   ├── Class-Based Face Recognition
-│   ├── Storage Management (Local/S3)
-│   ├── Enhanced Logging
-│   └── Environment Configuration
-│   └── SQLite Integration
-│
-└── Database (SQLite)
-    ├── Class Management (BTech IT/AIML)
-    ├── Student Records with Class Assignment
-    ├── Attendance Sessions by Class
-    └── Lightweight File-based Database
-```
-
-## 🚀 Quick Start
-
-### Prerequisites
-- **Python 3.10+** with pip
-- **Node.js 16+** with npm  
-- **Git** for version control
-- **(Optional) NVIDIA GPU** with CUDA for acceleration
-
-### 1. Clone & Setup
-```bash
-# Clone the repository
-git clone <repository-url>
-cd "Dental Attendance"
-
-# SQLite database will be created automatically on first run
-```
-
-### 2. Backend Setup
-```bash
-cd backend
-
-# Install Python dependencies
-pip install -r requirements.txt
-
-# Configure environment
-cp .env.example .env
-# Edit .env with your database credentials and preferences
-
-# Initialize database
-python -c "from database import create_all_tables; create_all_tables()"
-
-# Start backend server
-python main.py
-# Backend running at: http://localhost:8000
-```
-
-### 3. Frontend Setup
-```bash
-cd frontend
-
-# Install Node.js dependencies  
-npm install
-
-# Configure environment
-cp .env.example .env
-# Edit .env with your backend URL
-
-# Start frontend development server
-npm start
-# Frontend running at: http://localhost:3000
-```
-
-### 4. Access the Application
-- **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:8000
-- **API Documentation**: http://localhost:8000/docs
-- **Health Check**: http://localhost:8000/health
-
-## 📖 Usage Guide
-
-### 1. Class Management
-1. Navigate to **Student Management** tab
-2. Create BTech classes (IT/AIML) with sections
-3. Verify class configuration
-
-### 2. Student Registration
-1. Go to **Student Registration** tab
-2. Fill student details and select class
-3. Upload multiple photos for robust recognition
-4. Click **Register Student**
-
-### 3. Mark Attendance
-1. Navigate to **Mark Attendance** tab
-2. Select the target class
-3. Enter session name
-4. Upload classroom photo
-5. Review and confirm detected students
-
-### 4. View Analytics
-1. Go to **Attendance Data** tab
-2. View session history and statistics
-3. Export attendance reports
-4. Analyze attendance patterns
-
-## 🔧 Configuration Guide
-
-### Storage Configuration
-
-#### Local Storage (Default)
-```bash
-# .env configuration
-PHOTO_STORAGE_TYPE=local
-BACKEND_BASE_URL=http://localhost:8000
-```
-
-#### AWS S3 Cloud Storage
-```bash
-# .env configuration
-PHOTO_STORAGE_TYPE=s3
-AWS_ACCESS_KEY_ID=your_aws_key
-AWS_SECRET_ACCESS_KEY=your_aws_secret  
-AWS_REGION=us-east-1
-S3_BUCKET_NAME=your_bucket_name
-```
-
-### Logging Configuration
-
-Control system verbosity with precision:
-```bash
-# Very verbose logging (debug environments)
-LOG_THROTTLE_MS=100
-
-# Normal logging (development)  
-LOG_THROTTLE_MS=2000
-
-# Quiet logging (production)
-LOG_THROTTLE_MS=10000
-
-# Minimal logging (high-traffic systems)
-LOG_THROTTLE_MS=30000
-```
-
-### Database Configuration
-```bash
-# SQLite database file path (defaults to attendance.db in backend folder)
-DB_FILE=attendance.db
-```
-
-## 🛠️ Advanced Configuration
-
-### GPU Acceleration Setup
-```bash
-# Install CUDA-enabled TensorFlow
-pip install tensorflow[and-cuda]
-
-# Verify GPU detection
-python -c "
-import tensorflow as tf
-print('GPUs Available:', len(tf.config.list_physical_devices('GPU')))
-"
-```
-
-### Production Deployment
-
-#### Environment Setup
-```bash
-# Production backend .env
-PHOTO_STORAGE_TYPE=s3
-LOG_LEVEL=WARNING
-LOG_THROTTLE_MS=10000
-BACKEND_BASE_URL=https://api.yourdomain.com
-
-# Production frontend .env  
-REACT_APP_API_BASE=https://api.yourdomain.com
-REACT_APP_PHOTO_BASE=https://your-bucket.s3.region.amazonaws.com
-```
-
-#### AWS S3 Setup
-```bash
-# Run S3 setup script
-./setup_s3.sh
-
-# Or manually configure bucket with CORS:
-# - Public read access for photos
-# - Proper CORS headers for frontend access
-# - Lifecycle policies for storage optimization
-```
-
-## 🔗 API Documentation
-
-### Health Endpoint
-```bash
-GET /health
-# Returns system status, version, and feature information
-```
-
-### Student Management
-```bash
-GET    /student/classes          # List all classes
-POST   /student/                 # Register new student
-GET    /student/                 # List all students  
-PUT    /student/{id}             # Update student
-DELETE /student/{id}             # Delete student
-```
-
-### Attendance Management  
-```bash
-POST   /attendance/mark          # Mark attendance with photo
-GET    /attendance/sessions      # List attendance sessions
-GET    /attendance/stats         # Get attendance statistics
-POST   /attendance/export        # Export attendance data
-```
-
-### Storage Management
-```bash
-GET    /static/{file_path}       # Serve static files (local storage)
-# S3 URLs served directly from AWS (cloud storage)
-```
-
-## 🏗️ Project Structure
-
-```
-Dental Attendance/
-├── 📁 backend/                  # FastAPI Backend
-│   ├── 🐍 main.py              # Application entry point
-│   ├── 🗃️  database.py         # Database models & connection
-│   ├── 🤖 face_recognition.py  # AI face recognition engine
-│   ├── ⚙️  config.py           # Configuration management
-│   ├── 📁 routers/             # API route handlers
-│   │   ├── students.py         # Student management APIs
-│   │   └── attendance.py       # Attendance APIs
-│   ├── 📁 utils/               # Utility modules
-│   │   ├── logging_utils.py    # Configurable logging system
-│   │   ├── storage_utils.py    # Storage management (Local/S3)
-│   │   └── export_utils.py     # Data export utilities
-│   ├── 📁 static/              # Static file storage (local mode)
-│   │   ├── dataset/            # Student folders with photos & embeddings
-│   │   │   ├── Naman_Yadav_41/ # Student folder (Name_RollNo format)
-│   │   │   │   ├── face.jpg    # Student photo
-│   │   │   │   └── face_embedding.npy # Face embedding numpy file
-│   │   │   ├── Affan_Shaikh_02/ # Another student folder
-│   │   │   │   ├── face.jpg    # Student photo
-│   │   │   │   └── face_embedding.npy # Face embedding numpy file
-│   │   │   └── ... (more student folders)
-│   │   ├── attendance_photos/  # Classroom attendance photos
-│   │   ├── embeddings/         # Legacy embedding storage
-│   │   ├── exports/            # Generated reports
-│   │   ├── temp/               # Temporary processing files
-│   │   └── uploads/            # File upload staging
-│   ├── 📁 alembic/             # Database migrations
-│   ├── 🔧 .env                 # Environment configuration
-│   └── 📋 requirements.txt     # Python dependencies
-│
-├── 📁 frontend/                 # React Frontend
-│   ├── 📁 src/                 # Source code
-│   │   ├── App.js              # Main application component
-│   │   ├── api.js              # Backend API integration
-│   │   └── components/         # React components
-│   ├── 📁 public/              # Static public assets
-│   ├── 🔧 .env                 # Frontend configuration
-│   └── 📋 package.json         # Node.js dependencies
-│
-├── 📁 scripts/                  # Deployment & utility scripts
-│   ├── setup_s3.sh            # AWS S3 setup automation
-│   ├── migrate_to_s3.py       # Storage migration utility
-│   └── test_logging.sh        # Logging system test script
-│
-├── 📄 README.md                # This documentation
-├── 📄 PROJECT_DETAILS.md       # Detailed technical documentation
-└── 📄 PROJECT_HEALTH_REPORT.md # System health and status
-```
-
-## 🧪 Testing
-
-### Test Logging System
-```bash
-# Test different logging intervals
-./test_logging.sh
-
-# Manual testing
-curl http://localhost:8000/health  # Check API response
-```
-
-### Test Storage Systems
-```bash
-# Test local storage
-curl -F "photo=@test_image.jpg" http://localhost:8000/attendance/mark
-
-# Test S3 storage (after configuration)
-# Upload will automatically use S3 when PHOTO_STORAGE_TYPE=s3
-```
-
-### Face Recognition Testing
-```bash
-# Test face recognition accuracy
-python -c "
-from backend.face_recognition import ClassBasedFaceRecognizer
-recognizer = ClassBasedFaceRecognizer()
-print('Face recognizer initialized successfully')
-"
-```
-
-## 🚨 Troubleshooting
-
-### Common Issues
-
-#### Backend Won't Start
-```bash
-# Check Python dependencies
-pip install -r requirements.txt
-
-# Verify database connection
-python -c "from database import engine; print('DB Connected')"
-
-# Check environment variables
-python -c "from config import *; print(f'Storage: {PHOTO_STORAGE_TYPE}')"
-```
-
-#### Face Recognition Errors  
-```bash
-# Install CUDA support (for GPU acceleration)
-pip install tensorflow[and-cuda]
-
-# Verify GPU availability
-nvidia-smi
-
-# Check face recognition models
-python -c "from deepface import DeepFace; DeepFace.build_model('Facenet512')"
-```
-
-#### Storage Issues
-```bash
-# Local storage: Check permissions
-ls -la backend/static/
-
-# S3 storage: Verify credentials  
-aws s3 ls s3://your-bucket-name/
-```
-
-#### Logging Too Verbose
-```bash
-# Increase throttle interval in .env
-LOG_THROTTLE_MS=10000  # 10 seconds between similar logs
-```
-
-## 📊 Performance & Monitoring
-
-### System Metrics
-- **Face Recognition**: ~2-5 seconds per photo (with GPU)
-- **Database Operations**: <100ms average response time
-- **Storage Operations**: Local <50ms, S3 <500ms
-- **Concurrent Users**: Supports 50+ simultaneous users
-
-### Monitoring Endpoints
-```bash
-GET /health                     # System health check
-GET /attendance/stats          # Attendance statistics  
-# Check logs: dental_attendance.log
-```
-
-### Performance Optimization
-- **GPU Acceleration**: Install CUDA for 10x faster face recognition
-- **Database Indexing**: Automatic indexes on key fields
-- **Caching**: Student embeddings cached in memory
-- **Logging Throttling**: Configurable to reduce I/O overhead
-
-## 🤝 Contributing
-
-### Development Setup
-1. Fork the repository
-2. Create feature branch: `git checkout -b feature/amazing-feature`
-3. Follow coding standards and add tests
-4. Commit changes: `git commit -m 'Add amazing feature'`
-5. Push to branch: `git push origin feature/amazing-feature`
-6. Open a Pull Request
-
-### Code Standards
-- **Python**: Follow PEP 8, use type hints
-- **JavaScript**: Use ES6+, consistent formatting
-- **Documentation**: Update README for new features
-- **Testing**: Add tests for critical functionality
-
-## 📝 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🙏 Acknowledgments
-
-- **DeepFace**: Face recognition framework
-- **FastAPI**: Modern Python web framework
-- **React**: Frontend framework
-- **SQLite**: Lightweight embedded database
-- **TensorFlow**: Machine learning platform
-- **AWS S3**: Cloud storage solution
-
-## 📞 Support
-
-For support and questions:
-- 📧 Email: support@btechattendance.com
-- 🐛 Issues: [GitHub Issues](link-to-issues)
-- 📚 Documentation: [Full Documentation](link-to-docs)
-- 💬 Community: [Discord Server](link-to-discord)
+![Version](https://img.shields.io/badge/version-2.0.0-blue)
+![Python](https://img.shields.io/badge/Python-3.10+-green)
+![React](https://img.shields.io/badge/React-18+-61DAFB)
+![License](https://img.shields.io/badge/license-MIT-green)
 
 ---
 
-**Built with ❤️ for BTech IT & AIML departments**
+## 📋 Table of Contents
 
-*Empowering education through intelligent attendance management*
+- [Overview](#-overview)
+- [Features](#-features)
+- [Tech Stack](#-tech-stack)
+- [Project Structure](#-project-structure)
+- [Prerequisites](#-prerequisites)
+- [Installation](#-installation)
+- [Running the Application](#-running-the-application)
+- [Configuration](#-configuration)
+- [API Documentation](#-api-documentation)
+- [Deployment](#-deployment)
+- [Troubleshooting](#-troubleshooting)
 
-# Backend setup
-cd backend
-python -m venv ..\.venv-py310
-..\.venv-py310\Scripts\Activate.ps1
-pip install -r requirements.txt
+---
 
-# Frontend setup (new terminal)
-cd ..\frontend
-npm install
-```
+## 🌟 Overview
 
-### 2. Start the System
+Bharati Facify is a complete facial attendance management system built for educational institutions. It uses state-of-the-art deep learning models to recognize students from individual or group photos and automatically mark attendance.
 
-```powershell
-# Terminal 1: Start Backend
-cd backend
-python main.py
-# API available at: http://localhost:8000
+### Key Highlights
 
-# Terminal 2: Start Frontend
-cd frontend
-npm start
-# UI available at: http://localhost:3002
-```
+- 🧠 **AI-Powered Recognition**: Uses Facenet512/ArcFace models for 98%+ accuracy
+- 👥 **Group Photo Support**: Detect and recognize multiple students in a single photo
+- 🖥️ **CPU-Optimized**: Runs efficiently on CPU without requiring GPU
+- 📊 **Analytics Dashboard**: Visual insights into attendance patterns
+- 🔐 **Role-Based Access**: Superadmin and Teacher roles with different permissions
+- 📱 **Responsive UI**: Works on desktop and mobile browsers
 
-### 3. Access the System
-- **Web Interface**: http://localhost:3002
-- **API Documentation**: http://localhost:8000/docs
-- **Admin Panel**: Navigate through the tab-based interface
+---
 
-## 📱 User Guide
+## ✨ Features
 
-### 👨‍🎓 **Register Students**
-1. Navigate to **Register Student** tab
-2. Select student's **Class** (BTech IT/AIML) and **Section** (A/B)
-3. Fill in student details (Name, Roll No, PRN, etc.)
-4. Upload 3-5 clear photos from different angles
-5. System generates facial embeddings automatically
-6. Student is assigned to class and ready for attendance marking
+### Core Features
+| Feature | Description |
+|---------|-------------|
+| **Face Recognition** | Identify students using deep learning (Facenet512, ArcFace) |
+| **Group Attendance** | Mark attendance for entire class from a single photo |
+| **Student Management** | Register students with photos, manage profiles |
+| **Class Organization** | Organize students by BTech programs (IT/AIML) and sections |
+| **Subject Management** | Create subjects per class with credit hours |
+| **Attendance Export** | Export attendance reports as Excel/CSV/PDF |
+| **Medical Leave Tracking** | Track and manage student medical leaves |
+| **Analytics Dashboard** | View attendance trends, statistics, and insights |
 
-### 📸 **Mark Attendance**
-1. Go to **Mark Attendance** tab
-2. Select **Class** and **Section** for attendance session
-3. Enter session name (e.g., "Computer Networks Lab - Aug 17")
-4. Upload a group photo of the classroom
-5. System processes and identifies students from selected class
-6. Attendance is automatically recorded for class members only
+### Technical Features
+| Feature | Description |
+|---------|-------------|
+| **Multi-Detector Fallback** | Falls back through MTCNN → RetinaFace → MediaPipe → OpenCV |
+| **Adaptive Thresholds** | Automatically adjusts recognition thresholds for group photos |
+| **Quality Assessment** | Filters out blurry or low-quality face detections |
+| **JWT Authentication** | Secure API access with token-based auth |
 
-### 📊 **View Reports**
-1. Open **View Attendance** tab
-2. Browse attendance sessions by date
-3. Click any session to see detailed records
-4. Export reports in CSV/Excel format
+---
 
-### 🛠️ **Manage Students**
-1. Access **Manage Students** tab
-2. Filter students by **Class** and **Section**
-3. View all registered students with class assignments
-4. Edit student information, class assignment, or photos
-5. Activate/deactivate student accounts
-6. Search and filter students by multiple criteria
+## 🛠️ Tech Stack
 
-## 🔧 API Reference
+### Backend
+| Technology | Purpose |
+|------------|---------|
+| **Python 3.10+** | Core programming language |
+| **FastAPI** | High-performance web framework |
+| **SQLite** | Lightweight file-based database (default) |
+| **TensorFlow 2.19** | Deep learning framework (CPU-optimized) |
+| **DeepFace** | Face recognition library |
+| **SQLAlchemy** | ORM for database operations |
 
-### Base URL: `http://localhost:8000`
+### Frontend
+| Technology | Purpose |
+|------------|---------|
+| **React 18** | UI framework |
+| **JavaScript/CSS** | Frontend logic and styling |
+| **Nginx** | Production web server (optional) |
 
-#### **Class Management**
-```http
-GET    /classes              # List all classes
-POST   /classes              # Create new class
-PUT    /classes/{id}         # Update class
-DELETE /classes/{id}         # Delete class
-GET    /classes/{id}/students # Get students in class
-```
+### Optional Components
+| Technology | Purpose | Required? |
+|------------|---------|-----------|
+| **Redis** | Caching & performance optimization | ❌ Optional (falls back to in-memory) |
+| **PostgreSQL** | Alternative to SQLite for production | ❌ Optional |
+| **Docker** | Containerized deployment | ❌ Optional |
+| **AWS S3/Azure Blob** | Cloud photo storage | ❌ Optional |
 
-#### **Student Management**
-```http
-POST   /student/register     # Register new student with class
-GET    /students             # List all students  
-GET    /students/by-class/{class_id} # Get students by class
-PUT    /student/{id}         # Update student
-DELETE /student/{id}         # Delete student
-GET    /student/{id}         # Get student details
-```
-
-#### **Attendance Operations**
-```http
-POST   /attendance/mark      # Mark attendance with photo and class
-GET    /attendance/sessions  # List attendance sessions
-GET    /attendance/sessions/by-class/{class_id} # Sessions by class
-GET    /attendance/records   # Get session records
-GET    /attendance/stats     # System statistics
-GET    /attendance/stats/by-class/{class_id} # Class-specific stats
-```
-
-#### **System Management**
-```http
-POST   /backup/create        # Create system backup
-GET    /backup/list          # List available backups
-POST   /backup/restore       # Restore from backup
-GET    /health               # System health check
-```
-
-### Example Requests
-
-**Register Student with Class:**
-```powershell
-$form = @{
-    name = 'John Doe'
-    roll_no = 'BT21IT001'
-    prn = 'PRN12345'
-    seat_no = 'A-01'
-    email = 'john@college.edu'
-    phone = '+91-9876543210'
-    class_id = 1  # BTech FYIT Section A
-}
-Invoke-RestMethod -Uri "http://localhost:8000/student/register" `
-    -Method Post -Form $form -InFile "john_photo.jpg"
-```
-
-**Mark Class-Specific Attendance:**
-```powershell
-$form = @{ 
-    session_name = 'Data Structures Lab - Aug 17'
-    class_id = 1  # BTech FYIT Section A
-}
-Invoke-RestMethod -Uri "http://localhost:8000/attendance/mark" `
-    -Method Post -Form $form -InFile "classroom_photo.jpg"
-```
-
-## 🧠 AI Technology
-
-### **Face Recognition Pipeline**
-1. **Detection**: MTCNN detects faces in uploaded photos
-2. **Alignment**: Faces are normalized and aligned
-3. **Embedding**: Facenet512 generates 512-dimensional vectors
-4. **Storage**: Embeddings stored as numpy arrays
-5. **Matching**: Euclidean distance comparison for recognition
-
-### **Class-Based Face Recognition**
-- Students organized by BTech programs (IT/AIML) and sections (A/B)
-- Attendance marking filters faces by class membership
-- Enhanced accuracy through class-specific recognition
-- Supports 12 predefined BTech classes with room for expansion
-
-### **Multi-Photo Registration**
-- Students registered with 3-5 photos for robustness
-- Embeddings are averaged to create a "super-profile"
-- Handles variations in lighting, angle, and expression
-- Achieves 99%+ accuracy in controlled classroom environments
-
-### **SQLite Performance**
-- **ACID Compliance**: Full transaction support for data integrity
-- **Concurrent Access**: Supports multiple read operations simultaneously
-- **Scalability**: Handles thousands of students and attendance records efficiently
-- **Backup & Recovery**: Simple file-based backup with instant restore
-- **Zero Configuration**: No server setup required - just a single file
+---
 
 ## 📁 Project Structure
 
 ```
-BTech Attendance System (v6.0)/
-├── 📂 backend/                    # FastAPI Backend
-│   ├── 📄 main.py                # Application entry point
-│   ├── 📄 database.py            # SQLite models with classes
-│   ├── 📄 face_recognition.py    # Class-based AI recognition
-│   ├── 📄 config.py              # SQLite configuration
-│   ├── 📄 dependencies.py        # Dependency injection
-│   ├── 📂 routers/               # API route handlers
-│   │   ├── 📄 students.py        # Student & class management
-│   │   └── 📄 attendance.py      # Class-based attendance
-│   ├── 📂 static/                # File storage
-│   │   ├── 📂 dataset/           # Student folders with photos & embeddings
-│   │   │   ├── Naman_Yadav_41/   # Student folder (Name_RollNo format)
-│   │   │   │   ├── face.jpg      # Student photo
-│   │   │   │   └── face_embedding.npy # Face embedding numpy file
-│   │   │   └── ... (more students)
-│   │   ├── 📂 attendance_photos/ # Session photos
-│   │   ├── 📂 embeddings/        # Legacy embedding storage
-│   │   ├── 📂 exports/           # Generated reports
-│   │   ├── 📂 temp/              # Temporary files
-│   │   └── 📂 uploads/           # Upload staging
-│   └── 📄 requirements.txt       # Python dependencies
+Facial_Attendance_System/
+├── backend/                    # FastAPI Backend
+│   ├── main.py                 # Application entry point
+│   ├── config.py               # Configuration management
+│   ├── database.py             # SQLAlchemy models
+│   ├── face_recognition.py     # Face recognition engine
+│   ├── requirements.txt        # Python dependencies
+│   ├── routers/                # API route handlers
+│   │   ├── auth.py             # Authentication endpoints
+│   │   ├── students.py         # Student management
+│   │   ├── attendance.py       # Attendance marking
+│   │   ├── subjects.py         # Subject management
+│   │   └── ...
+│   ├── utils/                  # Utility modules
+│   ├── static/                 # Static files & uploads
+│   │   ├── student_photos/     # Registered student photos
+│   │   ├── attendance_photos/  # Uploaded attendance photos
+│   │   ├── dataset/            # Face embeddings
+│   │   └── exports/            # Generated reports
+│   └── ai/                     # Advanced AI modules
 │
-├── 📂 frontend/                   # React Frontend
-│   ├── 📂 src/
-│   │   ├── 📄 App.js             # Main application
-│   │   ├── 📄 api.js             # API communication
-│   │   ├── 📂 components/        # React components
-│   │   │   ├── 📄 RegisterStudent.js
-│   │   │   ├── 📄 MarkAttendance.js
-│   │   │   ├── 📄 ViewAttendance.js
-│   │   │   ├── 📄 ManageStudents.js
-│   │   │   └── 📄 BackupManager.js
-│   │   └── 📂 styles/            # CSS modules
-│   │       ├── 📄 variables.css  # Design tokens
-│   │       ├── 📄 base.css       # Base styles
-│   │       └── 📄 *.css          # Component styles
-│   └── 📄 package.json           # Node dependencies
+├── frontend/                   # React Frontend
+│   ├── src/
+│   │   ├── App.js              # Main React component
+│   │   ├── components/         # UI components
+│   │   └── api.js              # API client
+│   ├── public/                 # Static assets
+│   └── package.json            # Node.js dependencies
 │
-├── 📄 README.md                  # This documentation
-└── 📄 PROJECT_RESTORATION_SUMMARY.md
+├── .env                        # Environment configuration
+├── .env.azure.example          # Azure deployment template
+├── create_admin.py             # Create admin user script
+├── setup_local_env.sh          # Local setup script
+└── AZURE_DEPLOYMENT_GUIDE.md   # Cloud deployment guide
 ```
-
-## 🎓 **Supported BTech Programs**
-
-### **Information Technology (IT)**
-- **BTech FYIT** - First Year IT (Sections A & B)
-- **BTech SYIT** - Second Year IT (Sections A & B)
-- **BTech TYIT** - Third Year IT (Sections A & B)
-
-### **Artificial Intelligence & Machine Learning (AIML)**
-- **BTech FYAIML** - First Year AI/ML (Sections A & B)
-- **BTech SYAIML** - Second Year AI/ML (Sections A & B)
-- **BTech TYAIML** - Third Year AI/ML (Sections A & B)
-
-## 🔐 Security & Privacy
-
-### **Data Protection**
-- All student photos stored locally
-- Facial embeddings are mathematical representations (not photos)
-- SQLite database with ACID compliance and data integrity
-- No cloud storage or external API calls (unless configured)
-- GDPR compliant data handling
-- Simple file-based backups
-
-### **Access Control**
-- Local network access only
-- No user authentication (single-user system)
-- File system permissions protect data
-- Audit logs for all operations
-
-## 🛠️ Development
-
-### **Technology Stack**
-- **Frontend**: React 18, CSS3, HTML5
-- **Backend**: FastAPI, Python 3.10+
-- **Database**: SQLite with SQLAlchemy ORM
-- **AI/ML**: DeepFace, TensorFlow, OpenCV
-- **Styling**: Modern CSS with custom design system
-
-### **Code Quality**
-- Modular architecture with clear separation
-- Comprehensive error handling
-- Responsive design patterns
-- Performance optimization
-- Clean code principles
-
-### **Contributing**
-1. Fork the repository
-2. Create feature branch: `git checkout -b feature/amazing-feature`
-3. Commit changes: `git commit -m 'Add amazing feature'`
-4. Push to branch: `git push origin feature/amazing-feature`
-5. Open a Pull Request
-
-## 📈 Performance Metrics
-
-- **Recognition Accuracy**: 99%+ in classroom environments
-- **Processing Speed**: <3 seconds for 30-student classroom
-- **Memory Usage**: <2GB RAM for 1000+ students
-- **Storage**: ~50MB per 100 students (photos + embeddings)
-- **Response Time**: <200ms for API calls
-
-## 🔧 Troubleshooting
-
-### **Common Issues**
-
-**Database file issues:**
-```powershell
-# Check if attendance.db exists in backend folder
-# Database is created automatically on first run
-# Backup: Simply copy attendance.db file
-```
-
-**Frontend not loading:**
-```powershell
-cd frontend
-rm -rf node_modules package-lock.json
-npm install
-npm start
-```
-
-**Database migration issues:**
-```powershell
-cd backend
-# Reset database (WARNING: deletes all data)
-rm attendance.db
-python main.py  # Will recreate database automatically
-```
-
-**Backend face recognition errors:**
-```powershell
-# Install CPU version if GPU issues
-pip uninstall tensorflow-gpu
-pip install tensorflow
-```
-
-**Port conflicts:**
-```powershell
-# Change frontend port
-set PORT=3003 && npm start
-```
-
-### **System Requirements**
-- **Minimum**: 4GB RAM, 2-core CPU, 2GB storage
-- **Recommended**: 8GB RAM, 4-core CPU, NVIDIA GPU, 5GB storage
-- **Optimal**: 16GB RAM, 8-core CPU, RTX 3060+, 10GB storage
-
-## 📞 Support & Contact
-
-- **Issues**: Open a GitHub issue
-- **Documentation**: Check `/docs` folder
-- **Accuracy Improvements**: See `ACCURACY_IMPROVEMENT_GUIDE.md`
-- **Implementation Summary**: See `ACCURACY_SYSTEM_SUMMARY.md`
-- **Updates**: Watch repository for updates
-- **Community**: Join our discussions
-
-## 📚 Additional Documentation
-
-- **[Accuracy Improvement Guide](ACCURACY_IMPROVEMENT_GUIDE.md)** - Complete guide to improving recognition accuracy from 95% to 99%+
-- **[Accuracy System Summary](ACCURACY_SYSTEM_SUMMARY.md)** - Quick overview of implemented accuracy features
-- **[Docker Deployment Guide](DOCKER_DEPLOYMENT_GUIDE.md)** - Deploy with Docker
-- **[Quick Start Guide](QUICK_START.md)** - Get started quickly
-- **[Storage Switching Guide](STORAGE_SWITCHING_GUIDE.md)** - Switch between local and S3 storage
-
-## 🎯 Accuracy Improvements (NEW!)
-
-The system now includes advanced accuracy improvement features:
-
-### ✨ Available Features
-- **🔬 Advanced Preprocessing**: Face alignment, illumination normalization, sharpness enhancement
-- **🎯 Quality Filtering**: Automatic detection of blurry/occluded faces
-- **🤖 Ensemble Recognition**: Use multiple models (ArcFace + Facenet512 + SFace) for higher accuracy
-- **📈 Data Augmentation**: Generate synthetic variations during registration
-- **💯 Confidence Scoring**: Multi-level confidence assessment
-
-### 📊 Performance Profiles
-
-| Profile | Accuracy | Processing Time | RAM Usage | Best For |
-|---------|----------|----------------|-----------|----------|
-| **Balanced** | 97-98% | ~20s | 2-3 GB | Most users (recommended) |
-| **Maximum** | 99-99.5% | ~60s | 4-6 GB | Critical applications |
-| **Fast** | 94-96% | ~15s | 1.5-2 GB | Limited resources |
-
-### 🚀 Quick Enable (Balanced Mode)
-
-Add to your `.env` file:
-```bash
-ENABLE_FACE_ALIGNMENT=true
-ENABLE_ILLUMINATION_NORMALIZATION=true
-ENABLE_SHARPNESS_ENHANCEMENT=true
-ENABLE_QUALITY_FILTERING=true
-MIN_FACE_QUALITY_SCORE=0.4
-ENABLE_DATA_AUGMENTATION=true
-```
-
-**For complete setup instructions, see [ACCURACY_IMPROVEMENT_GUIDE.md](ACCURACY_IMPROVEMENT_GUIDE.md)**
-
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) file for details.
 
 ---
 
-<div align="center">
+## 📋 Prerequisites
 
-**Built with ❤️ for Educational Excellence**
+### Required
+- **Python 3.10+** with pip
+- **Node.js 18+** with npm
+- **Git** for version control
 
-*Transforming attendance management with intelligent technology*
+### System Requirements
+| Component | Minimum | Recommended |
+|-----------|---------|-------------|
+| **RAM** | 4 GB | 8 GB |
+| **CPU** | 2 cores | 4+ cores |
+| **Storage** | 5 GB | 10 GB |
+| **GPU** | Not required | Not required (CPU-optimized) |
 
-[![GitHub Stars](https://img.shields.io/github/stars/username/repo)](https://github.com/username/repo)
-[![Version](https://img.shields.io/badge/Version-6.0-blue)](https://github.com/username/repo/releases)
-[![Database](https://img.shields.io/badge/Database-SQLite-003B57)](https://sqlite.org)
-[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
+---
 
-</div>
+## 🚀 Installation
+
+### Step 1: Clone the Repository
+
+```bash
+git clone https://github.com/your-repo/Facial_Attendance_System.git
+cd Facial_Attendance_System
+```
+
+### Step 2: Setup Environment Variables
+
+```bash
+# Copy example environment file
+cp .env.example .env
+
+# Or run the setup script (recommended)
+chmod +x setup_local_env.sh
+./setup_local_env.sh
+```
+
+### Step 3: Install Backend Dependencies
+
+```bash
+cd backend
+pip install -r requirements.txt
+```
+
+> ⚠️ **Note**: First installation may take 5-10 minutes to download TensorFlow and face recognition models.
+
+### Step 4: Install Frontend Dependencies
+
+```bash
+cd ../frontend
+npm install
+```
+
+### Step 5: Create Admin User
+
+```bash
+cd ../backend
+python create_admin.py
+```
+
+Follow the prompts to create a superadmin account.
+
+---
+
+## ▶️ Running the Application
+
+### Development Mode
+
+**Terminal 1 - Start Backend:**
+```bash
+cd backend
+python main.py
+```
+
+Backend will start at: `http://localhost:8000`
+
+**Terminal 2 - Start Frontend:**
+```bash
+cd frontend
+npm start
+```
+
+Frontend will start at: `http://localhost:3000`
+
+### Access Points
+
+| URL | Description |
+|-----|-------------|
+| `http://localhost:3000` | Web Application (Frontend) |
+| `http://localhost:8000` | Backend API |
+| `http://localhost:8000/docs` | Interactive API Documentation (Swagger) |
+| `http://localhost:8000/health` | Health Check Endpoint |
+
+---
+
+## ⚙️ Configuration
+
+### Environment Variables (.env)
+
+```bash
+# ===========================================
+# DATABASE CONFIGURATION
+# ===========================================
+DATABASE_TYPE=sqlite              # "sqlite" (default) or "postgresql"
+DB_FILE=attendance.db             # SQLite database file
+
+# ===========================================
+# FACE RECOGNITION CONFIGURATION
+# ===========================================
+FACE_RECOGNITION_MODEL=Facenet512 # Facenet512, ArcFace, GhostFaceNet
+FACE_DETECTOR_BACKEND=mtcnn       # mtcnn, retinaface, mediapipe, opencv
+FACE_DISTANCE_THRESHOLD=22.0      # Lower = stricter matching
+
+# ===========================================
+# PHOTO STORAGE
+# ===========================================
+PHOTO_STORAGE_TYPE=local          # "local" or "s3" or "azure"
+BACKEND_BASE_URL=http://localhost:8000
+
+# ===========================================
+# AUTHENTICATION
+# ===========================================
+AUTH_SECRET_KEY=your-secret-key   # Change this in production!
+ACCESS_TOKEN_EXPIRE_MINUTES=480   # 8 hours
+
+# ===========================================
+# LOGGING
+# ===========================================
+LOG_LEVEL=INFO
+LOG_THROTTLE_MS=1000
+```
+
+### Face Recognition Models
+
+| Model | Accuracy | Speed | Best For |
+|-------|----------|-------|----------|
+| **Facenet512** | ⭐⭐⭐⭐⭐ | Fast | Group photos (default) |
+| **ArcFace** | ⭐⭐⭐⭐⭐ | Moderate | Highest accuracy |
+| **GhostFaceNet** | ⭐⭐⭐⭐ | Very Fast | Real-time processing |
+| **Facenet** | ⭐⭐⭐ | Very Fast | Basic recognition |
+
+### Face Detector Backends
+
+| Detector | Accuracy | Speed | Max Faces |
+|----------|----------|-------|-----------|
+| **MTCNN** | ⭐⭐⭐⭐½ | Moderate | 50-80 |
+| **RetinaFace** | ⭐⭐⭐⭐⭐ | Slow | 100+ |
+| **MediaPipe** | ⭐⭐⭐⭐ | Fast | 30-50 |
+| **OpenCV** | ⭐⭐ | Very Fast | 5-10 |
+
+---
+
+## 📚 API Documentation
+
+### Authentication Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/auth/login` | Login and get JWT token |
+| `GET` | `/auth/me` | Get current user info |
+| `POST` | `/auth/register` | Register new user (admin only) |
+
+### Student Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/student/` | List all students |
+| `POST` | `/student/` | Register new student |
+| `GET` | `/student/{id}` | Get student details |
+| `DELETE` | `/student/{id}` | Delete student |
+
+### Attendance Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/attendance/mark` | Mark attendance from photo |
+| `GET` | `/attendance/sessions` | List attendance sessions |
+| `GET` | `/attendance/records` | Get attendance records |
+| `GET` | `/attendance/export` | Export attendance report |
+
+### Class & Subject Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/classes/` | List all classes |
+| `POST` | `/classes/` | Create new class |
+| `GET` | `/subjects/` | List subjects |
+| `POST` | `/subjects/` | Create subject |
+
+> 📝 **Full API documentation available at:** `http://localhost:8000/docs`
+
+---
+
+## ☁️ Deployment
+
+### Option 1: Direct Deployment (Recommended for Testing)
+
+Run directly on a cloud VM (Azure, AWS, GCP):
+
+```bash
+# Install dependencies
+pip install -r backend/requirements.txt
+cd frontend && npm install && npm run build
+
+# Start backend
+cd backend && python main.py
+
+# Serve frontend (use nginx or serve package)
+npx serve -s frontend/build -l 3000
+```
+
+### Option 2: Docker Deployment (Optional)
+
+```bash
+# Build and run with Docker Compose
+docker-compose up --build
+```
+
+### Option 3: Azure Deployment
+
+See [AZURE_DEPLOYMENT_GUIDE.md](AZURE_DEPLOYMENT_GUIDE.md) for detailed Azure deployment instructions.
+
+**Estimated Azure Costs (CPU-only):**
+| Service | Cost/Month |
+|---------|------------|
+| VM (B2s) | ~$30-40 |
+| Storage | ~$5 |
+| **Total** | ~$35-45 |
+
+---
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+#### 1. TensorFlow Installation Errors
+```bash
+# Use CPU-only version
+pip install tensorflow-cpu==2.19.1
+```
+
+#### 2. Face Recognition Model Download
+First run downloads models (~500MB). Ensure stable internet.
+
+#### 3. Database Locked (SQLite)
+```bash
+# Kill any existing backend processes
+pkill -f "python main.py"
+```
+
+#### 4. Port Already in Use
+```bash
+# Kill processes on ports 3000 and 8000
+./kill_project.sh
+```
+
+#### 5. Frontend Can't Connect to Backend
+Check `.env` has correct `REACT_APP_API_BASE`:
+```bash
+REACT_APP_API_BASE=http://localhost:8000
+```
+
+---
+
+## 👥 User Roles
+
+| Role | Permissions |
+|------|-------------|
+| **Superadmin** | Full access: manage users, classes, students, settings |
+| **Teacher** | Mark attendance, view reports, manage own sessions |
+
+---
+
+## 📊 Performance Notes
+
+### CPU-Only Mode
+- Face recognition: 2-5 seconds per face
+- Group photos (10 faces): 20-30 seconds
+- Recommended: Use OpenCV detector for faster processing
+
+### Optimization Tips
+1. Use `FACE_DETECTOR_BACKEND=opencv` for speed
+2. Set `BATCH_SIZE=1` for CPU
+3. Enable `ADAPTIVE_THRESHOLD_MODE=enabled` for group photos
+
+---
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 📞 Support
+
+- **Issues**: Open a GitHub issue for bugs or feature requests
+- **Documentation**: Check `/docs` endpoint for API reference
+
+---
+
+
+*Bharati Facify v2.0.0*

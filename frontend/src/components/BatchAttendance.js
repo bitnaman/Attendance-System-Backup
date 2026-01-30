@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { fetchExportClasses } from '../api';
+import '../styles/mark-attendance.css';
 
 const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:8000';
 
@@ -53,25 +54,22 @@ export default function BatchAttendance({ showMessage }) {
     }
   };
 
-  const handlePhotoUpload = (e) => {
+  const handlePhotoUpload = useCallback((e) => {
     const files = Array.from(e.target.files);
     if (files.length > 5) {
       showMessage('Maximum 5 photos allowed for batch processing', 'error');
       return;
     }
-    
-    // Validate file types
     const validFiles = files.filter(file => file.type.startsWith('image/'));
     if (validFiles.length !== files.length) {
       showMessage('Only image files are allowed', 'error');
     }
-    
     setPhotos(validFiles);
-  };
+  }, [showMessage]);
 
-  const removePhoto = (index) => {
+  const removePhoto = useCallback((index) => {
     setPhotos(prev => prev.filter((_, i) => i !== index));
-  };
+  }, []);
 
   const processBatchPhotos = async () => {
     if (!selectedClass || photos.length === 0 || !sessionName.trim()) {
@@ -89,7 +87,7 @@ export default function BatchAttendance({ showMessage }) {
       formData.append('session_name', sessionName);
       formData.append('session_type', sessionType);
       
-      photos.forEach((photo, index) => {
+      photos.forEach((photo) => {
         formData.append('photos', photo);
       });
 
@@ -170,215 +168,196 @@ export default function BatchAttendance({ showMessage }) {
   }
 
   return (
-    <div style={{ padding: 16 }}>
-      <div style={{ 
-        backgroundColor: '#e8f5e8', 
-        padding: 16, 
-        borderRadius: 8, 
-        border: '1px solid #c3e6c3',
-        marginBottom: 20
-      }}>
-        <h4 style={{ margin: '0 0 8px 0', color: '#2e7d32' }}>📷 Batch Mode Active</h4>
-        <p style={{ margin: 0, color: '#2e7d32', fontSize: 14 }}>
-          Upload 3-5 photos of your class (arranged in rows) to process attendance for large batches (100+ students).
-          The system will automatically detect and identify students across all photos.
-        </p>
+    <div className="batch-attendance-container">
+      {/* Batch Mode Info Banner */}
+      <div className="batch-info-banner">
+        <div className="batch-info-icon">📷</div>
+        <div className="batch-info-content">
+          <h4>Batch Mode Active</h4>
+          <p>
+            Upload 3-5 photos of your class (arranged in rows) to process attendance for large batches (100+ students).
+            The system will automatically detect and identify students across all photos.
+          </p>
+        </div>
       </div>
 
-      <div style={{ display: 'grid', gap: 20, maxWidth: 800 }}>
-        {/* Class Selection */}
-        <div>
-          <label style={{ display: 'block', marginBottom: 8, fontWeight: 'bold' }}>Select Class</label>
-          <select 
-            value={selectedClass} 
-            onChange={(e) => {
-              setSelectedClass(e.target.value);
-              setSelectedSubject('');
-            }}
-            style={{ width: '100%', padding: 12, border: '1px solid #ddd', borderRadius: 4 }}
-          >
-            <option value="">-- Select Class --</option>
-            {classes.map((c) => (
-              <option key={c.id} value={c.id}>{c.display_name || `${c.name} - ${c.section}`}</option>
-            ))}
-          </select>
+      {/* Form Card */}
+      <div className="ma-form-card">
+        <div className="ma-form-header">
+          <span className="ma-form-header-icon">✏️</span>
+          <h3>Batch Session Details</h3>
         </div>
-
-        {/* Subject Selection */}
-        <div>
-          <label style={{ display: 'block', marginBottom: 8, fontWeight: 'bold' }}>
-            Select Subject (Optional)
-          </label>
-          {loadingSubjects ? (
-            <select disabled style={{ width: '100%', padding: 12, border: '1px solid #ddd', borderRadius: 4 }}>
-              <option>Loading subjects...</option>
-            </select>
-          ) : (
-            <select 
-              value={selectedSubject} 
-              onChange={(e) => setSelectedSubject(e.target.value)}
-              disabled={!selectedClass}
-              style={{ width: '100%', padding: 12, border: '1px solid #ddd', borderRadius: 4 }}
-            >
-              <option value="">General Attendance (No specific subject)</option>
-              {subjects.map((subject) => (
-                <option key={subject.id} value={subject.id}>
-                  {subject.name} {subject.code && `(${subject.code})`}
-                </option>
-              ))}
-            </select>
-          )}
-        </div>
-
-        {/* Session Details */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-          <div>
-            <label style={{ display: 'block', marginBottom: 8, fontWeight: 'bold' }}>Session Name</label>
-            <input 
-              type="text" 
-              value={sessionName} 
-              onChange={(e) => setSessionName(e.target.value)}
-              placeholder="e.g., Morning Session, Lecture 1"
-              style={{ width: '100%', padding: 12, border: '1px solid #ddd', borderRadius: 4 }}
-            />
-          </div>
-          <div>
-            <label style={{ display: 'block', marginBottom: 8, fontWeight: 'bold' }}>Session Type</label>
-            <select 
-              value={sessionType} 
-              onChange={(e) => setSessionType(e.target.value)}
-              style={{ width: '100%', padding: 12, border: '1px solid #ddd', borderRadius: 4 }}
-            >
-              <option value="normal">Normal Attendance</option>
-              <option value="extra">Extra Session</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Photo Upload */}
-        <div>
-          <label style={{ display: 'block', marginBottom: 8, fontWeight: 'bold' }}>Upload Class Photos (3-5 photos)</label>
-          <div style={{ 
-            border: '2px dashed #ddd', 
-            borderRadius: 8, 
-            padding: 20, 
-            textAlign: 'center',
-            backgroundColor: '#f9f9f9'
-          }}>
-            <input 
-              type="file" 
-              multiple 
-              accept="image/*"
-              onChange={handlePhotoUpload}
-              style={{ display: 'none' }}
-              id="photo-upload"
-            />
-            <label 
-              htmlFor="photo-upload" 
-              style={{ 
-                cursor: 'pointer', 
-                display: 'block',
-                color: '#007bff',
-                fontWeight: 'bold'
-              }}
-            >
-              📸 Click to upload photos or drag and drop
-            </label>
-            <p style={{ margin: '8px 0 0 0', color: '#666', fontSize: 14 }}>
-              Upload 3-5 photos of your class arranged in rows (max 5 photos)
-            </p>
-          </div>
-
-          {/* Photo Preview */}
-          {photos.length > 0 && (
-            <div style={{ marginTop: 16 }}>
-              <h4>Uploaded Photos ({photos.length}/5)</h4>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
-                {photos.map((photo, index) => (
-                  <div key={index} style={{ position: 'relative' }}>
-                    <img 
-                      src={URL.createObjectURL(photo)} 
-                      alt={`Photo ${index + 1}`}
-                      style={{ 
-                        width: '100%', 
-                        height: 120, 
-                        objectFit: 'cover', 
-                        borderRadius: 8,
-                        border: '1px solid #ddd'
-                      }}
-                    />
-                    <button 
-                      onClick={() => removePhoto(index)}
-                      style={{
-                        position: 'absolute',
-                        top: 4,
-                        right: 4,
-                        background: '#dc3545',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '50%',
-                        width: 24,
-                        height: 24,
-                        cursor: 'pointer',
-                        fontSize: 12
-                      }}
-                    >
-                      ✖
-                    </button>
-                    <div style={{ 
-                      position: 'absolute', 
-                      bottom: 4, 
-                      left: 4, 
-                      background: 'rgba(0,0,0,0.7)', 
-                      color: 'white', 
-                      padding: '2px 6px', 
-                      borderRadius: 4, 
-                      fontSize: 12 
-                    }}>
-                      Photo {index + 1}
-                    </div>
-                  </div>
+        <div className="ma-form-body">
+          <div className="ma-form-grid">
+            {/* Class Selection */}
+            <div className="ma-form-group">
+              <label className="ma-form-label">
+                Select Class <span className="required">*</span>
+              </label>
+              <select 
+                className="ma-form-select"
+                value={selectedClass} 
+                onChange={(e) => {
+                  setSelectedClass(e.target.value);
+                  setSelectedSubject('');
+                }}
+              >
+                <option value="">Choose a class</option>
+                {classes.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.display_name || `${c.name} - ${c.section}`}
+                  </option>
                 ))}
-              </div>
+              </select>
             </div>
-          )}
-        </div>
 
-        {/* Process Button */}
-        <button 
-          onClick={processBatchPhotos}
-          disabled={processing || !selectedClass || photos.length === 0 || !sessionName.trim()}
-          style={{ 
-            padding: 16, 
-            backgroundColor: processing ? '#6c757d' : '#28a745', 
-            color: 'white', 
-            border: 'none', 
-            borderRadius: 8,
-            cursor: processing ? 'not-allowed' : 'pointer',
-            fontSize: 16,
-            fontWeight: 'bold'
-          }}
-        >
-          {processing ? '🔄 Processing Photos...' : '🚀 Process Batch Attendance'}
-        </button>
+            {/* Subject Selection */}
+            <div className="ma-form-group">
+              <label className="ma-form-label">
+                Subject <span className="optional">(Optional)</span>
+              </label>
+              {loadingSubjects ? (
+                <select className="ma-form-select" disabled>
+                  <option>Loading subjects...</option>
+                </select>
+              ) : (
+                <select 
+                  className="ma-form-select"
+                  value={selectedSubject} 
+                  onChange={(e) => setSelectedSubject(e.target.value)}
+                  disabled={!selectedClass}
+                >
+                  <option value="">General Attendance (No specific subject)</option>
+                  {subjects.map((subject) => (
+                    <option key={subject.id} value={subject.id}>
+                      {subject.name} {subject.code && `(${subject.code})`}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
 
-        {/* Instructions */}
-        <div style={{ 
-          backgroundColor: '#e3f2fd', 
-          padding: 16, 
-          borderRadius: 8, 
-          border: '1px solid #bbdefb' 
-        }}>
-          <h4 style={{ margin: '0 0 12px 0', color: '#1976d2' }}>📋 Instructions for Large Classes</h4>
-          <ul style={{ margin: 0, paddingLeft: 20, color: '#1976d2' }}>
-            <li>Arrange students in 3-5 rows for better photo coverage</li>
-            <li>Take photos from different angles to capture all students</li>
-            <li>Ensure good lighting and clear visibility of faces</li>
-            <li>Upload 3-5 photos maximum for optimal processing</li>
-            <li>Review the preview list before confirming attendance</li>
-            <li>Manually check/uncheck students as needed</li>
-          </ul>
+            {/* Session Name */}
+            <div className="ma-form-group">
+              <label className="ma-form-label">
+                Session Name <span className="required">*</span>
+              </label>
+              <input 
+                type="text"
+                className="ma-form-input"
+                value={sessionName} 
+                onChange={(e) => setSessionName(e.target.value)}
+                placeholder="e.g., Morning Session, Lecture 1"
+              />
+            </div>
+
+            {/* Session Type */}
+            <div className="ma-form-group">
+              <label className="ma-form-label">Session Type</label>
+              <select 
+                className="ma-form-select"
+                value={sessionType} 
+                onChange={(e) => setSessionType(e.target.value)}
+              >
+                <option value="normal">Normal Attendance</option>
+                <option value="extra">Extra Session</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Photo Upload */}
+          <div className="ma-form-group full-width ma-upload-section">
+            <label className="ma-form-label">
+              Class Photos <span className="required">*</span>
+              <span className="optional" style={{ marginLeft: '0.5rem' }}>(3-5 photos recommended)</span>
+            </label>
+            <div className="ma-upload-area">
+              <input 
+                type="file" 
+                multiple 
+                accept="image/*"
+                onChange={handlePhotoUpload}
+                className="ma-upload-input"
+                id="batch-photo-upload"
+              />
+              <label htmlFor="batch-photo-upload">
+                <div className="ma-upload-placeholder">
+                  <div className="ma-upload-icon">🖼️</div>
+                  <div className="ma-upload-text">
+                    <h4>Click to upload photos</h4>
+                    <p>Upload 3-5 photos of your class (max 5 photos)</p>
+                  </div>
+                  <div className="ma-upload-formats">
+                    <span className="ma-format-tag">JPG</span>
+                    <span className="ma-format-tag">PNG</span>
+                    <span className="ma-format-tag">WEBP</span>
+                  </div>
+                </div>
+              </label>
+            </div>
+
+            {/* Photo Preview Grid */}
+            {photos.length > 0 && (
+              <div style={{ marginTop: '1rem' }}>
+                <div className="batch-photo-count">Uploaded Photos ({photos.length}/5)</div>
+                <div className="batch-photos-grid">
+                  {photos.map((photo, index) => (
+                    <div key={index} className="batch-photo-item">
+                      <img 
+                        src={URL.createObjectURL(photo)} 
+                        alt={`Photo ${index + 1}`}
+                      />
+                      <button 
+                        type="button"
+                        onClick={() => removePhoto(index)}
+                        className="batch-photo-remove"
+                      >
+                        ✕
+                      </button>
+                      <div className="batch-photo-number">Photo {index + 1}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Submit Button */}
+          <div className="ma-form-actions">
+            <button 
+              type="button"
+              onClick={processBatchPhotos}
+              disabled={processing || !selectedClass || photos.length === 0 || !sessionName.trim()}
+              className="ma-submit-btn"
+              style={{ background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)' }}
+            >
+              {processing ? (
+                <>
+                  <span className="ma-btn-spinner"></span>
+                  Processing Photos...
+                </>
+              ) : (
+                <>
+                  <span>🚀</span>
+                  Process Batch Attendance
+                </>
+              )}
+            </button>
+          </div>
         </div>
+      </div>
+
+      {/* Instructions */}
+      <div className="batch-instructions">
+        <h5>📋 Instructions for Large Classes</h5>
+        <ul>
+          <li>Arrange students in 3-5 rows for better photo coverage</li>
+          <li>Take photos from different angles to capture all students</li>
+          <li>Ensure good lighting and clear visibility of faces</li>
+          <li>Upload 3-5 photos maximum for optimal processing</li>
+          <li>Review the preview list before confirming attendance</li>
+          <li>Manually check/uncheck students as needed</li>
+        </ul>
       </div>
     </div>
   );
@@ -390,12 +369,11 @@ function BatchPreview({ previewData, onCommit, onCancel, processing, getPhotoUrl
   const [statusOverrides, setStatusOverrides] = useState({});
 
   useEffect(() => {
-    // Pre-check detected students as present
     const detectedIds = previewData.detectedStudents.map(s => s.student_id);
     setPresentStudents(new Set(detectedIds));
   }, [previewData]);
 
-  const handleStudentToggle = (studentId) => {
+  const handleStudentToggle = useCallback((studentId) => {
     setPresentStudents(prev => {
       const newSet = new Set(prev);
       if (newSet.has(studentId)) {
@@ -405,14 +383,14 @@ function BatchPreview({ previewData, onCommit, onCancel, processing, getPhotoUrl
       }
       return newSet;
     });
-  };
+  }, []);
 
-  const handleStatusChange = (studentId, status) => {
+  const handleStatusChange = useCallback((studentId, status) => {
     setStatusOverrides(prev => ({
       ...prev,
       [studentId]: status
     }));
-  };
+  }, []);
 
   const handleCommit = () => {
     onCommit(Array.from(presentStudents), statusOverrides);
@@ -421,76 +399,37 @@ function BatchPreview({ previewData, onCommit, onCancel, processing, getPhotoUrl
   const allStudents = [...previewData.detectedStudents, ...previewData.undetected];
 
   return (
-    <div style={{ 
-      position: 'fixed', 
-      top: 0, 
-      left: 0, 
-      right: 0, 
-      bottom: 0, 
-      backgroundColor: 'rgba(0,0,0,0.5)', 
-      display: 'flex', 
-      alignItems: 'center', 
-      justifyContent: 'center',
-      zIndex: 1000,
-      padding: 20
-    }}>
-      <div style={{ 
-        backgroundColor: 'white', 
-        borderRadius: 12, 
-        width: '100%', 
-        maxWidth: 1000, 
-        maxHeight: '90vh',
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
+    <div className="batch-preview-modal">
+      <div className="batch-preview-content">
         {/* Header */}
-        <div style={{ 
-          padding: 20, 
-          borderBottom: '1px solid #eee', 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center' 
-        }}>
+        <div className="batch-preview-header">
           <div>
-            <h2 style={{ margin: 0, color: '#333' }}>Review Attendance</h2>
-            <p style={{ margin: '4px 0 0 0', color: '#666' }}>
+            <h2>Review Attendance</h2>
+            <p>
               Detected: {previewData.detectedStudents.length} students • 
               Total in class: {allStudents.length} students
             </p>
           </div>
           <button 
             onClick={onCancel}
-            style={{ 
-              padding: '8px 16px', 
-              border: 'none', 
-              backgroundColor: '#6c757d', 
-              color: 'white', 
-              borderRadius: 4,
-              cursor: 'pointer'
-            }}
+            className="batch-preview-close"
+            disabled={processing}
           >
-            ✖ Cancel
+            ✕
           </button>
         </div>
 
         {/* Photo Preview */}
         {previewData.photoUrls && previewData.photoUrls.length > 0 && (
-          <div style={{ padding: 16, borderBottom: '1px solid #eee', backgroundColor: '#f8f9fa' }}>
-            <h4 style={{ margin: '0 0 12px 0' }}>Uploaded Photos</h4>
-            <div style={{ display: 'flex', gap: 12, overflowX: 'auto' }}>
+          <div className="batch-preview-photos">
+            <h4>Uploaded Photos</h4>
+            <div className="batch-preview-photos-row">
               {previewData.photoUrls.map((url, index) => (
                 <img 
                   key={index}
                   src={getPhotoUrl(url)} 
                   alt={`Photo ${index + 1}`}
-                  style={{ 
-                    width: 120, 
-                    height: 80, 
-                    objectFit: 'cover', 
-                    borderRadius: 8,
-                    border: '1px solid #ddd'
-                  }}
+                  className="batch-preview-photo-thumb"
                 />
               ))}
             </div>
@@ -498,114 +437,72 @@ function BatchPreview({ previewData, onCommit, onCancel, processing, getPhotoUrl
         )}
 
         {/* Student List */}
-        <div style={{ flex: 1, overflow: 'auto', padding: 20 }}>
-          <div style={{ display: 'grid', gap: 12 }}>
-            {allStudents.map((student) => {
-              const isDetected = previewData.detectedStudents.some(s => s.student_id === student.student_id);
-              const isPresent = presentStudents.has(student.student_id);
-              const confidence = isDetected ? previewData.detectedStudents.find(s => s.student_id === student.student_id)?.confidence : 0;
+        <div className="batch-preview-list">
+          {allStudents.map((student) => {
+            const isDetected = previewData.detectedStudents.some(s => s.student_id === student.student_id);
+            const isPresent = presentStudents.has(student.student_id);
+            const confidence = isDetected 
+              ? previewData.detectedStudents.find(s => s.student_id === student.student_id)?.confidence 
+              : 0;
 
-              return (
-                <div key={student.student_id} style={{ 
-                  padding: 16, 
-                  border: '1px solid #ddd', 
-                  borderRadius: 8,
-                  backgroundColor: isDetected ? '#e8f5e8' : '#fff3e0',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 16
-                }}>
-                  <input 
-                    type="checkbox" 
-                    checked={isPresent}
-                    onChange={() => handleStudentToggle(student.student_id)}
-                    style={{ transform: 'scale(1.2)' }}
-                  />
-                  
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <strong>{student.name}</strong>
-                      {isDetected && (
-                        <span style={{ 
-                          padding: '2px 8px', 
-                          backgroundColor: '#4caf50', 
-                          color: 'white', 
-                          borderRadius: 12, 
-                          fontSize: 12 
-                        }}>
-                          Detected ({(confidence * 100).toFixed(1)}%)
-                        </span>
-                      )}
-                      {!isDetected && (
-                        <span style={{ 
-                          padding: '2px 8px', 
-                          backgroundColor: '#ff9800', 
-                          color: 'white', 
-                          borderRadius: 12, 
-                          fontSize: 12 
-                        }}>
-                          Not Detected
-                        </span>
-                      )}
-                    </div>
-                  </div>
+            return (
+              <div 
+                key={student.student_id} 
+                className={`batch-student-row ${isDetected ? 'detected' : 'not-detected'}`}
+              >
+                <input 
+                  type="checkbox" 
+                  checked={isPresent}
+                  onChange={() => handleStudentToggle(student.student_id)}
+                  className="batch-student-checkbox"
+                />
+                
+                <span className="batch-student-name">{student.name}</span>
+                
+                {isDetected ? (
+                  <span className="batch-student-badge detected">
+                    ✓ Detected ({(confidence * 100).toFixed(1)}%)
+                  </span>
+                ) : (
+                  <span className="batch-student-badge not-detected">
+                    Not Detected
+                  </span>
+                )}
 
-                  <select 
-                    value={statusOverrides[student.student_id] || (isPresent ? 'present' : 'absent')}
-                    onChange={(e) => handleStatusChange(student.student_id, e.target.value)}
-                    style={{ padding: '4px 8px', border: '1px solid #ddd', borderRadius: 4 }}
-                  >
-                    <option value="present">Present</option>
-                    <option value="absent">Absent</option>
-                    <option value="medical">Medical Leave</option>
-                    <option value="authorized">Authorized Absence</option>
-                  </select>
-                </div>
-              );
-            })}
-          </div>
+                <select 
+                  value={statusOverrides[student.student_id] || (isPresent ? 'present' : 'absent')}
+                  onChange={(e) => handleStatusChange(student.student_id, e.target.value)}
+                  className="batch-student-status"
+                >
+                  <option value="present">Present</option>
+                  <option value="absent">Absent</option>
+                  <option value="medical">Medical Leave</option>
+                  <option value="authorized">Authorized Absence</option>
+                </select>
+              </div>
+            );
+          })}
         </div>
 
         {/* Footer */}
-        <div style={{ 
-          padding: 20, 
-          borderTop: '1px solid #eee', 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center',
-          backgroundColor: '#f8f9fa'
-        }}>
-          <div>
+        <div className="batch-preview-footer">
+          <div className="batch-preview-summary">
             <strong>Summary:</strong> {presentStudents.size} present, {allStudents.length - presentStudents.size} absent
           </div>
-          <div style={{ display: 'flex', gap: 12 }}>
+          <div className="batch-preview-actions">
             <button 
               onClick={onCancel}
               disabled={processing}
-              style={{ 
-                padding: '12px 24px', 
-                border: '1px solid #6c757d', 
-                backgroundColor: 'white', 
-                color: '#6c757d', 
-                borderRadius: 4,
-                cursor: processing ? 'not-allowed' : 'pointer'
-              }}
+              className="batch-cancel-btn"
             >
               Cancel
             </button>
             <button 
               onClick={handleCommit}
               disabled={processing}
-              style={{ 
-                padding: '12px 24px', 
-                border: 'none', 
-                backgroundColor: processing ? '#6c757d' : '#28a745', 
-                color: 'white', 
-                borderRadius: 4,
-                cursor: processing ? 'not-allowed' : 'pointer'
-              }}
+              className="batch-save-btn"
             >
-              {processing ? 'Saving...' : 'Save Attendance'}
+              {processing ? 'Saving...' : '✓ Save Attendance'}
             </button>
           </div>
         </div>

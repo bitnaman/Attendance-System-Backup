@@ -327,6 +327,14 @@
   animation: logoFloat 6s ease-in-out infinite;
 }
 
+.sidebar-logo-img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  border-radius: 8px;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+}
+
 .sidebar-title {
   font-size: 1.2rem;
   font-weight: 700;

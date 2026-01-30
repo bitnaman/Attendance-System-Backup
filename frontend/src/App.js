@@ -379,14 +379,14 @@ function AppShell() {
         <div className="header-content">
           <div className="brand-section">
             <div className="logo-container">
-              <div className="logo-icon">🎓</div>
+              <img src="/logo.jpeg" alt="Bharati Vidyapeeth" className="logo-img" />
               <div className="brand-text">
-                <h1>BTech Attendance System</h1>
-                <div className="brand-subtitle">IT Department - Smart Attendance Management</div>
+                <h1>Bharati <span className="brand-highlight">Facify</span></h1>
+                <div className="brand-subtitle">AI-Powered Attendance System</div>
               </div>
             </div>
           </div>
-          <div className="modern-stats">
+          <div className="modern-stats desktop-only">
             <div className="mini-stat">
               <div className={`stat-indicator ${systemStats.isOnline ? '' : 'offline'}`}>
                 <span className="pulse-dot"></span>
@@ -427,8 +427,8 @@ function AppShell() {
 
       <nav className="beautified-tabs">
         <div className="sidebar-brand">
-          <div className="sidebar-logo">🎓</div>
-          <div className="sidebar-title">BTech Attendance</div>
+          <img src="/logo.jpeg" alt="Logo" className="sidebar-logo-img" />
+          <div className="sidebar-title">Bharati Facify</div>
         </div>
         <button className={`beautified-tab ${activeTab === 'attendance' ? 'active' : ''}`} onClick={() => setActiveTab('attendance')}>
           <span className="tab-icon">📸</span>

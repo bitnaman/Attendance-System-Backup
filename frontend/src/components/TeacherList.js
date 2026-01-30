@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../AuthContext';
+import '../styles/user-profile.css';
 
 const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:8000';
 
@@ -22,10 +23,7 @@ export default function TeacherList({ onRefresh }) {
         },
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch teachers');
-      }
-
+      if (!response.ok) throw new Error('Failed to fetch teachers');
       const data = await response.json();
       setTeachers(data);
     } catch (err) {
@@ -35,54 +33,18 @@ export default function TeacherList({ onRefresh }) {
     }
   };
 
-  useEffect(() => {
-    fetchTeachers();
-  }, [token]);
-
-  useEffect(() => {
-    if (onRefresh) {
-      fetchTeachers();
-    }
-  }, [onRefresh]);
-
-  const getRoleIcon = (role) => {
-    switch (role) {
-      case 'superadmin':
-        return '👑';
-      case 'teacher':
-        return '👨‍🏫';
-      default:
-        return '👤';
-    }
-  };
+  useEffect(() => { fetchTeachers(); }, [token]);
+  useEffect(() => { if (onRefresh) fetchTeachers(); }, [onRefresh]);
 
   const getRoleColor = (role) => {
-    switch (role) {
-      case 'superadmin':
-        return '#e74c3c';
-      case 'teacher':
-        return '#3498db';
-      default:
-        return '#95a5a6';
-    }
-  };
-
-  const getStatusColor = (isActive) => {
-    return isActive ? '#27ae60' : '#e74c3c';
-  };
-
-  const getStatusIcon = (isActive) => {
-    return isActive ? '✅' : '❌';
+    return role === 'superadmin' ? '#e74c3c' : role === 'teacher' ? '#3498db' : '#95a5a6';
   };
 
   const handleRoleChange = async (userId, newRole, username) => {
-    if (updatingRole === userId) return; // Prevent double clicks
+    if (updatingRole === userId) return;
     
     const roleDisplay = newRole === 'superadmin' ? 'Super Admin' : 'Teacher';
-    
-    if (!window.confirm(`Are you sure you want to change this user's role to ${roleDisplay}?`)) {
-      return;
-    }
+    if (!window.confirm(`Change ${username}'s role to ${roleDisplay}?`)) return;
 
     try {
       setUpdatingRole(userId);
@@ -100,18 +62,8 @@ export default function TeacherList({ onRefresh }) {
         throw new Error(error.detail || 'Failed to update role');
       }
 
-      // Refresh the list
       await fetchTeachers();
-      
-      // Show success message with instruction
-      alert(
-        `✅ Success!\n\n` +
-        `${username}'s role has been changed to ${roleDisplay}.\n\n` +
-        `⚠️ IMPORTANT:\n` +
-        `${username} must LOG OUT and LOG BACK IN for the changes to take effect.\n\n` +
-        `Until they log back in, they will still see their old permissions.`
-      );
-      
+      alert(`✅ ${username}'s role changed to ${roleDisplay}.\n\n⚠️ They must LOG OUT and LOG BACK IN for changes to take effect.`);
     } catch (err) {
       alert(`❌ Error: ${err.message}`);
     } finally {
@@ -120,31 +72,20 @@ export default function TeacherList({ onRefresh }) {
   };
 
   const handlePasswordReset = async (userId, username, isPrimaryAdmin) => {
-    if (resettingPassword === userId) return; // Prevent double clicks
+    if (resettingPassword === userId) return;
     
-    // Prevent resetting primary admin's password (unless you are the primary admin)
     if (isPrimaryAdmin && currentUser.username !== username) {
-      alert(`🔒 Cannot reset password for primary admin '${username}'.\nOnly they can change their own password.`);
+      alert(`🔒 Cannot reset password for primary admin '${username}'.`);
       return;
     }
     
-    const newPassword = window.prompt(
-      `Reset password for ${username}:\n\n` +
-      `Enter new password (minimum 6 characters):`
-    );
-    
-    if (!newPassword) {
-      return; // User cancelled
-    }
-    
+    const newPassword = window.prompt(`Reset password for ${username}:\n\nEnter new password (min 6 characters):`);
+    if (!newPassword) return;
     if (newPassword.length < 6) {
-      alert('❌ Password must be at least 6 characters long!');
+      alert('❌ Password must be at least 6 characters!');
       return;
     }
-    
-    if (!window.confirm(`Are you sure you want to reset ${username}'s password?`)) {
-      return;
-    }
+    if (!window.confirm(`Reset ${username}'s password?`)) return;
 
     try {
       setResettingPassword(userId);
@@ -162,12 +103,7 @@ export default function TeacherList({ onRefresh }) {
         throw new Error(error.detail || 'Failed to reset password');
       }
 
-      alert(
-        `✅ Password Reset Successful!\n\n` +
-        `${username}'s password has been changed.\n\n` +
-        `They can now log in with their new password.`
-      );
-      
+      alert(`✅ ${username}'s password has been reset.`);
     } catch (err) {
       alert(`❌ Error: ${err.message}`);
     } finally {
@@ -177,27 +113,10 @@ export default function TeacherList({ onRefresh }) {
 
   if (loading) {
     return (
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: '2rem',
-        color: '#7f8c8d'
-      }}>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.5rem'
-        }}>
-          <div style={{
-            width: '20px',
-            height: '20px',
-            border: '2px solid rgba(127, 140, 141, 0.3)',
-            borderTop: '2px solid #7f8c8d',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite'
-          }} />
-          Loading teachers...
+      <div className="user-list-card">
+        <div className="loading-spinner">
+          <div className="spinner" />
+          Loading users...
         </div>
       </div>
     );
@@ -205,32 +124,12 @@ export default function TeacherList({ onRefresh }) {
 
   if (error) {
     return (
-      <div style={{
-        padding: '1.5rem',
-        backgroundColor: 'rgba(231, 76, 60, 0.1)',
-        border: '1px solid rgba(231, 76, 60, 0.2)',
-        borderRadius: '12px',
-        color: '#e74c3c',
-        textAlign: 'center'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+      <div className="user-list-card">
+        <div className="form-message error">
           <span>⚠️</span>
-          <strong>Error loading teachers</strong>
+          <span>Error: {error}</span>
         </div>
-        <p style={{ margin: 0, fontSize: '0.9rem' }}>{error}</p>
-        <button
-          onClick={fetchTeachers}
-          style={{
-            marginTop: '1rem',
-            padding: '0.5rem 1rem',
-            backgroundColor: '#e74c3c',
-            color: 'white',
-            border: 'none',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontSize: '0.9rem'
-          }}
-        >
+        <button className="refresh-btn" onClick={fetchTeachers} style={{ marginTop: '1rem' }}>
           🔄 Retry
         </button>
       </div>
@@ -242,348 +141,123 @@ export default function TeacherList({ onRefresh }) {
   const activeCount = teachers.filter(t => t.is_active).length;
 
   return (
-    <div style={{
-      backgroundColor: 'rgba(255, 255, 255, 0.95)',
-      borderRadius: '16px',
-      padding: '1.5rem',
-      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-      border: '1px solid rgba(255, 255, 255, 0.2)'
-    }}>
+    <div className="user-list-card">
       {/* Info Banner */}
-      <div style={{
-        backgroundColor: 'rgba(52, 152, 219, 0.1)',
-        border: '1px solid rgba(52, 152, 219, 0.3)',
-        borderRadius: '8px',
-        padding: '0.75rem 1rem',
-        marginBottom: '1rem',
-        display: 'flex',
-        alignItems: 'start',
-        gap: '0.5rem'
-      }}>
-        <span style={{ fontSize: '1.2rem' }}>ℹ️</span>
-        <div style={{ fontSize: '0.85rem', color: '#2980b9' }}>
-          <div style={{ marginBottom: '0.25rem' }}>
-            <strong>Note:</strong> When you change a user's role, they must <strong>log out and log back in</strong> for changes to take effect.
-          </div>
-          <div style={{ fontSize: '0.8rem', opacity: 0.9 }}>
-            🔒 <strong>Primary admin accounts (Protected)</strong> cannot have their role or password changed by others.
-          </div>
+      <div className="info-banner">
+        <span className="info-banner-icon">ℹ️</span>
+        <div className="info-banner-content">
+          <strong>Note:</strong> Role changes require logout/login to take effect.
+          <br />
+          <span style={{ opacity: 0.85 }}>🔒 Primary admin accounts are protected.</span>
         </div>
       </div>
 
-      {/* Header with Stats */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '1.5rem',
-        paddingBottom: '1rem',
-        borderBottom: '1px solid rgba(44, 62, 80, 0.1)'
-      }}>
+      {/* Header */}
+      <div className="user-list-header">
         <div>
-          <h3 style={{
-            margin: 0,
-            color: '#2c3e50',
-            fontSize: '1.3rem',
-            fontWeight: '700',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem'
-          }}>
-            👥 Current Users
-          </h3>
-          <p style={{
-            margin: '0.25rem 0 0 0',
-            color: '#7f8c8d',
-            fontSize: '0.9rem'
-          }}>
-            Manage system users and their roles
-          </p>
+          <h3>👥 Current Users</h3>
+          <p>Manage system users and roles</p>
         </div>
-        <button
-          onClick={fetchTeachers}
-          style={{
-            padding: '0.5rem 1rem',
-            backgroundColor: '#3498db',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontSize: '0.9rem',
-            fontWeight: '500',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            transition: 'all 0.3s ease'
-          }}
-          onMouseOver={(e) => {
-            e.target.style.backgroundColor = '#2980b9';
-            e.target.style.transform = 'translateY(-1px)';
-          }}
-          onMouseOut={(e) => {
-            e.target.style.backgroundColor = '#3498db';
-            e.target.style.transform = 'translateY(0)';
-          }}
-        >
+        <button className="refresh-btn" onClick={fetchTeachers}>
           🔄 Refresh
         </button>
       </div>
 
-      {/* Stats Cards */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-        gap: '1rem',
-        marginBottom: '1.5rem'
-      }}>
-        <div style={{
-          backgroundColor: 'rgba(52, 152, 219, 0.1)',
-          border: '1px solid rgba(52, 152, 219, 0.2)',
-          borderRadius: '10px',
-          padding: '1rem',
-          textAlign: 'center'
-        }}>
-          <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>👨‍🏫</div>
-          <div style={{ fontSize: '1.2rem', fontWeight: '700', color: '#3498db' }}>{teacherCount}</div>
-          <div style={{ fontSize: '0.8rem', color: '#7f8c8d' }}>Teachers</div>
+      {/* Stats */}
+      <div className="stats-grid">
+        <div className="stat-item teachers">
+          <div className="stat-icon">👨‍🏫</div>
+          <div className="stat-value">{teacherCount}</div>
+          <div className="stat-label">Teachers</div>
         </div>
-        <div style={{
-          backgroundColor: 'rgba(231, 76, 60, 0.1)',
-          border: '1px solid rgba(231, 76, 60, 0.2)',
-          borderRadius: '10px',
-          padding: '1rem',
-          textAlign: 'center'
-        }}>
-          <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>👑</div>
-          <div style={{ fontSize: '1.2rem', fontWeight: '700', color: '#e74c3c' }}>{superadminCount}</div>
-          <div style={{ fontSize: '0.8rem', color: '#7f8c8d' }}>Admins</div>
+        <div className="stat-item admins">
+          <div className="stat-icon">👑</div>
+          <div className="stat-value">{superadminCount}</div>
+          <div className="stat-label">Admins</div>
         </div>
-        <div style={{
-          backgroundColor: 'rgba(39, 174, 96, 0.1)',
-          border: '1px solid rgba(39, 174, 96, 0.2)',
-          borderRadius: '10px',
-          padding: '1rem',
-          textAlign: 'center'
-        }}>
-          <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>✅</div>
-          <div style={{ fontSize: '1.2rem', fontWeight: '700', color: '#27ae60' }}>{activeCount}</div>
-          <div style={{ fontSize: '0.8rem', color: '#7f8c8d' }}>Active</div>
+        <div className="stat-item active">
+          <div className="stat-icon">✅</div>
+          <div className="stat-value">{activeCount}</div>
+          <div className="stat-label">Active</div>
         </div>
-        <div style={{
-          backgroundColor: 'rgba(44, 62, 80, 0.1)',
-          border: '1px solid rgba(44, 62, 80, 0.2)',
-          borderRadius: '10px',
-          padding: '1rem',
-          textAlign: 'center'
-        }}>
-          <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>👥</div>
-          <div style={{ fontSize: '1.2rem', fontWeight: '700', color: '#2c3e50' }}>{teachers.length}</div>
-          <div style={{ fontSize: '0.8rem', color: '#7f8c8d' }}>Total</div>
+        <div className="stat-item total">
+          <div className="stat-icon">👥</div>
+          <div className="stat-value">{teachers.length}</div>
+          <div className="stat-label">Total</div>
         </div>
       </div>
 
-      {/* Teachers List */}
+      {/* User List */}
       {teachers.length === 0 ? (
-        <div style={{
-          textAlign: 'center',
-          padding: '2rem',
-          color: '#7f8c8d'
-        }}>
-          <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>👥</div>
-          <p style={{ margin: 0, fontSize: '1rem' }}>No users found</p>
-          <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.9rem' }}>Create your first user to get started</p>
+        <div className="empty-state">
+          <div className="empty-icon">👥</div>
+          <p className="empty-title">No users found</p>
+          <p className="empty-desc">Create your first user to get started</p>
         </div>
       ) : (
-        <div style={{
-          display: 'grid',
-          gap: '0.75rem'
-        }}>
+        <div className="user-list">
           {teachers.map((teacher) => (
-            <div
-              key={teacher.id}
-              style={{
-                backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                border: '1px solid rgba(44, 62, 80, 0.1)',
-                borderRadius: '12px',
-                padding: '1rem',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                transition: 'all 0.3s ease'
-              }}
-              onMouseOver={(e) => {
-                e.target.style.backgroundColor = 'rgba(255, 255, 255, 1)';
-                e.target.style.borderColor = 'rgba(44, 62, 80, 0.2)';
-                e.target.style.transform = 'translateY(-1px)';
-                e.target.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
-              }}
-              onMouseOut={(e) => {
-                e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
-                e.target.style.borderColor = 'rgba(44, 62, 80, 0.1)';
-                e.target.style.transform = 'translateY(0)';
-                e.target.style.boxShadow = 'none';
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <div style={{
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '50%',
-                  backgroundColor: getRoleColor(teacher.role),
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '1.2rem',
-                  color: 'white',
-                  fontWeight: 'bold'
-                }}>
+            <div key={teacher.id} className="user-list-item">
+              <div className="user-item-info">
+                <div 
+                  className="user-item-avatar" 
+                  style={{ backgroundColor: getRoleColor(teacher.role) }}
+                >
                   {teacher.username.charAt(0).toUpperCase()}
                 </div>
-                <div>
-                  <div style={{
-                    fontSize: '1rem',
-                    fontWeight: '600',
-                    color: '#2c3e50',
-                    marginBottom: '0.25rem'
-                  }}>
-                    {teacher.username}
-                  </div>
-                  <div style={{
-                    fontSize: '0.85rem',
-                    color: '#7f8c8d'
-                  }}>
-                    ID: {teacher.id}
-                  </div>
+                <div className="user-item-details">
+                  <div className="user-item-name">{teacher.username}</div>
+                  <div className="user-item-id">ID: {teacher.id}</div>
                 </div>
               </div>
               
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                {/* Role Section - Show dropdown OR static badge */}
+              <div className="user-item-actions">
+                {/* Role Control */}
                 {currentUser && teacher.id !== currentUser.id && !teacher.is_primary_admin ? (
-                  // Editable role dropdown (for non-primary admins, not yourself)
                   <select
+                    className="role-select"
                     value={teacher.role}
                     onChange={(e) => handleRoleChange(teacher.id, e.target.value, teacher.username)}
                     disabled={updatingRole === teacher.id}
-                    style={{
-                      padding: '0.4rem 0.6rem',
-                      backgroundColor: updatingRole === teacher.id ? '#ecf0f1' : 'white',
-                      border: `1px solid ${getRoleColor(teacher.role)}40`,
-                      borderRadius: '8px',
-                      fontSize: '0.8rem',
-                      fontWeight: '500',
-                      color: getRoleColor(teacher.role),
-                      cursor: updatingRole === teacher.id ? 'not-allowed' : 'pointer',
-                      outline: 'none',
-                      transition: 'all 0.2s ease'
-                    }}
-                    onMouseOver={(e) => {
-                      if (updatingRole !== teacher.id) {
-                        e.target.style.borderColor = getRoleColor(teacher.role);
-                        e.target.style.boxShadow = `0 0 0 2px ${getRoleColor(teacher.role)}20`;
-                      }
-                    }}
-                    onMouseOut={(e) => {
-                      e.target.style.borderColor = `${getRoleColor(teacher.role)}40`;
-                      e.target.style.boxShadow = 'none';
+                    style={{ 
+                      borderColor: `${getRoleColor(teacher.role)}60`,
+                      color: getRoleColor(teacher.role)
                     }}
                   >
                     <option value="teacher">👨‍🏫 Teacher</option>
-                    <option value="superadmin">👑 Super Admin</option>
+                    <option value="superadmin">👑 Admin</option>
                   </select>
                 ) : (
-                  // Static role badge (for yourself or primary admin)
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    padding: '0.4rem 0.75rem',
-                    backgroundColor: teacher.is_primary_admin ? '#ffd700' : `${getRoleColor(teacher.role)}20`,
-                    border: teacher.is_primary_admin ? '2px solid #ffa500' : `1px solid ${getRoleColor(teacher.role)}40`,
-                    borderRadius: '20px',
-                    fontSize: '0.8rem',
-                    fontWeight: '500',
-                    color: teacher.is_primary_admin ? '#000' : getRoleColor(teacher.role)
-                  }}>
-                    <span>{teacher.is_primary_admin ? '🔒' : getRoleIcon(teacher.role)}</span>
-                    {teacher.role === 'superadmin' ? 'Super Admin' : 'Teacher'}
-                    {teacher.is_primary_admin && (
-                      <span style={{ fontSize: '0.7rem', fontWeight: '700' }}>(Protected)</span>
-                    )}
-                    {currentUser && teacher.id === currentUser.id && !teacher.is_primary_admin && (
-                      <span style={{ fontSize: '0.7rem', opacity: 0.7 }}>(You)</span>
-                    )}
-                  </div>
+                  <span className={`role-badge ${teacher.is_primary_admin ? 'protected' : ''}`}>
+                    {teacher.is_primary_admin ? '🔒' : (teacher.role === 'superadmin' ? '👑' : '👨‍🏫')}
+                    {teacher.role === 'superadmin' ? ' Admin' : ' Teacher'}
+                    {teacher.is_primary_admin && <span style={{ fontSize: '0.65rem' }}> (Protected)</span>}
+                    {currentUser && teacher.id === currentUser.id && !teacher.is_primary_admin && 
+                      <span style={{ opacity: 0.7 }}> (You)</span>}
+                  </span>
                 )}
                 
-                {/* Status Badge */}
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.25rem',
-                  padding: '0.25rem 0.5rem',
-                  backgroundColor: `${getStatusColor(teacher.is_active)}20`,
-                  border: `1px solid ${getStatusColor(teacher.is_active)}40`,
-                  borderRadius: '15px',
-                  fontSize: '0.75rem',
-                  fontWeight: '500',
-                  color: getStatusColor(teacher.is_active)
-                }}>
-                  <span>{getStatusIcon(teacher.is_active)}</span>
-                  {teacher.is_active ? 'Active' : 'Inactive'}
-                </div>
+                {/* Status */}
+                <span className={`status-badge ${teacher.is_active ? 'active' : 'inactive'}`}>
+                  {teacher.is_active ? '✅ Active' : '❌ Inactive'}
+                </span>
 
-                {/* Password Reset Button - Show for all users */}
+                {/* Password Reset */}
                 <button
+                  className="action-btn password"
                   onClick={() => handlePasswordReset(teacher.id, teacher.username, teacher.is_primary_admin)}
                   disabled={resettingPassword === teacher.id}
-                  style={{
-                    padding: '0.4rem 0.75rem',
-                    backgroundColor: resettingPassword === teacher.id ? '#ecf0f1' : '#9b59b6',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    fontSize: '0.75rem',
-                    fontWeight: '500',
-                    cursor: resettingPassword === teacher.id ? 'not-allowed' : 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.25rem',
-                    transition: 'all 0.2s ease'
-                  }}
-                  onMouseOver={(e) => {
-                    if (resettingPassword !== teacher.id) {
-                      e.currentTarget.style.backgroundColor = '#8e44ad';
-                      e.currentTarget.style.transform = 'translateY(-1px)';
-                    }
-                  }}
-                  onMouseOut={(e) => {
-                    if (resettingPassword !== teacher.id) {
-                      e.currentTarget.style.backgroundColor = '#9b59b6';
-                      e.currentTarget.style.transform = 'translateY(0)';
-                    }
-                  }}
                   title={teacher.is_primary_admin && currentUser.username !== teacher.username 
                     ? "Primary admin password is protected" 
-                    : "Reset user password"}
+                    : "Reset password"}
                 >
-                  <span>🔑</span>
-                  {resettingPassword === teacher.id ? 'Resetting...' : 'Reset Password'}
+                  🔑 {resettingPassword === teacher.id ? '...' : 'Reset'}
                 </button>
               </div>
             </div>
           ))}
         </div>
       )}
-
-      {/* CSS Animation */}
-      <style jsx>{`
-        @keyframes spin {
-          to {
-            transform: rotate(360deg);
-          }
-        }
-      `}</style>
     </div>
   );
 }

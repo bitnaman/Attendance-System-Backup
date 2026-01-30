@@ -18,6 +18,7 @@ from openpyxl import Workbook
 from openpyxl.chart import BarChart, Reference
 
 from database import Student, Class, AttendanceSession, AttendanceRecord
+from config import EXPORTS_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,8 @@ class AttendanceExporter:
     """Handles all attendance export functionality"""
     
     def __init__(self):
-        self.exports_dir = "/home/bitbuggy/Naman_Projects/Dental Attendance/backend/static/exports"
+        # Use config-based path instead of hardcoded absolute path
+        self.exports_dir = str(EXPORTS_DIR)
         os.makedirs(self.exports_dir, exist_ok=True)
     
     def get_date_filters(self, period: str) -> tuple[datetime, datetime, str]:
