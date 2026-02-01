@@ -1,0 +1,165 @@
+# ===========================================
+# SYSTEMD SERVICE CONFIGURATION
+# For Production Service Management
+# ===========================================
+
+# These systemd service files provide better process management than manual nohup commands
+# They ensure services auto-restart on failure and start on system boot
+
+# 1. Backend Service Configuration
+# File: /etc/systemd/system/facial-attendance-backend.service
+
+[Unit]
+Description=Facial Attendance System Backend API
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/facial-attendance-system/backend
+Environment=PATH=/usr/bin:/usr/local/bin
+Environment=PYTHONPATH=/home/ubuntu/facial-attendance-system/backend
+ExecStart=/usr/bin/python3 main.py
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/facial-attendance-system_backend.log
+StandardError=append:/var/log/facial-attendance-system_backend.log
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/home/ubuntu/facial-attendance-system
+ReadWritePaths=/var/log
+
+[Install]
+WantedBy=multi-user.target
+
+# ===========================================
+
+# 2. Frontend Service Configuration  
+# File: /etc/systemd/system/facial-attendance-frontend.service
+
+[Unit]
+Description=Facial Attendance System Frontend
+After=network.target facial-attendance-backend.service
+Wants=network-online.target
+Requires=facial-attendance-backend.service
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/facial-attendance-system/frontend/build
+ExecStart=/usr/bin/python3 -m http.server 3000 --bind 0.0.0.0
+Restart=always
+RestartSec=3
+StandardOutput=append:/var/log/facial-attendance-system_frontend.log
+StandardError=append:/var/log/facial-attendance-system_frontend.log
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/home/ubuntu/facial-attendance-system
+
+[Install]
+WantedBy=multi-user.target
+
+# ===========================================
+
+# INSTALLATION COMMANDS:
+
+# 1. Create service files
+sudo tee /etc/systemd/system/facial-attendance-backend.service > /dev/null << 'EOF'
+[Unit]
+Description=Facial Attendance System Backend API
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/facial-attendance-system/backend
+Environment=PATH=/usr/bin:/usr/local/bin
+Environment=PYTHONPATH=/home/ubuntu/facial-attendance-system/backend
+ExecStart=/usr/bin/python3 main.py
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/facial-attendance-system_backend.log
+StandardError=append:/var/log/facial-attendance-system_backend.log
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/home/ubuntu/facial-attendance-system
+ReadWritePaths=/var/log
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo tee /etc/systemd/system/facial-attendance-frontend.service > /dev/null << 'EOF'
+[Unit]
+Description=Facial Attendance System Frontend
+After=network.target facial-attendance-backend.service
+Wants=network-online.target
+Requires=facial-attendance-backend.service
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/facial-attendance-system/frontend/build
+ExecStart=/usr/bin/python3 -m http.server 3000 --bind 0.0.0.0
+Restart=always
+RestartSec=3
+StandardOutput=append:/var/log/facial-attendance-system_frontend.log
+StandardError=append:/var/log/facial-attendance-system_frontend.log
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/home/ubuntu/facial-attendance-system
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# 2. Reload systemd and enable services
+sudo systemctl daemon-reload
+sudo systemctl enable facial-attendance-backend.service
+sudo systemctl enable facial-attendance-frontend.service
+
+# 3. Start services
+sudo systemctl start facial-attendance-backend.service
+sudo systemctl start facial-attendance-frontend.service
+
+# ===========================================
+
+# SERVICE MANAGEMENT COMMANDS:
+
+# Check status
+sudo systemctl status facial-attendance-backend.service
+sudo systemctl status facial-attendance-frontend.service
+
+# Start services
+sudo systemctl start facial-attendance-backend.service
+sudo systemctl start facial-attendance-frontend.service
+
+# Stop services  
+sudo systemctl stop facial-attendance-backend.service
+sudo systemctl stop facial-attendance-frontend.service
+
+# Restart services
+sudo systemctl restart facial-attendance-backend.service
+sudo systemctl restart facial-attendance-frontend.service
+
+# View logs
+sudo journalctl -u facial-attendance-backend.service -f
+sudo journalctl -u facial-attendance-frontend.service -f
+
+# Or view log files directly
+tail -f /var/log/facial-attendance-system_backend.log
+tail -f /var/log/facial-attendance-system_frontend.log

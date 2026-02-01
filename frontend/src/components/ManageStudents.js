@@ -9,7 +9,8 @@ export default function ManageStudents({
   onEdit,
   onDelete,
   onToggle,
-  onUpgradeEmbeddings
+  onUpgradeEmbeddings,
+  userRole
 }) {
   const [classes, setClasses] = useState([]);
   const [selectedClass, setSelectedClass] = useState('');
@@ -259,6 +260,7 @@ export default function ManageStudents({
                 onToggle={onToggle}
                 onViewDetails={setSelectedStudentId}
                 onUpgradeEmbeddings={onUpgradeEmbeddings}
+                userRole={userRole}
               />
             ))}
           </div>

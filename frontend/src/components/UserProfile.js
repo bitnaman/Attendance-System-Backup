@@ -8,11 +8,13 @@ import BackupManager from './BackupManager';
 import ClassManagement from './ClassManagement';
 import RegisterStudentAdmin from './RegisterStudentAdmin';
 import SubjectManagement from './SubjectManagement';
+import StudentSelfRegister from './StudentSelfRegister';
 import '../styles/user-profile.css';
 
 export default function UserProfile({ user, showMessage }) {
   const { logout } = useAuth();
-  const [activeSection, setActiveSection] = useState('profile');
+  // For students, default to self-register section; for others, default to profile
+  const [activeSection, setActiveSection] = useState(user?.role === 'student' ? 'self-register' : 'profile');
 
   const getInitials = (name) => {
     return name ? name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U';
@@ -22,6 +24,7 @@ export default function UserProfile({ user, showMessage }) {
     switch (role) {
       case 'superadmin': return 'superadmin';
       case 'teacher': return 'teacher';
+      case 'student': return 'student';
       default: return 'default';
     }
   };
@@ -30,6 +33,7 @@ export default function UserProfile({ user, showMessage }) {
     switch (role) {
       case 'superadmin': return 'Super Administrator';
       case 'teacher': return 'Teacher';
+      case 'student': return 'Student';
       default: return 'User';
     }
   };
@@ -38,6 +42,7 @@ export default function UserProfile({ user, showMessage }) {
     switch (role) {
       case 'superadmin': return '👑';
       case 'teacher': return '👨‍🏫';
+      case 'student': return '🎓';
       default: return '👤';
     }
   };
@@ -49,19 +54,23 @@ export default function UserProfile({ user, showMessage }) {
   };
 
   // Tab configuration for cleaner rendering
+  // For students: only show profile and self-register tabs
+  // For teachers: show standard tabs but no admin features
+  // For superadmin: show all tabs
   const tabs = [
-    { id: 'profile', icon: '👤', label: 'Profile', adminOnly: false },
-    { id: 'exports', icon: '📊', label: 'Student Exports', adminOnly: false },
-    { id: 'attendance-exports', icon: '📈', label: 'Attendance Exports', adminOnly: false },
-    { id: 'medical', icon: '🏥', label: 'Medical Leave', adminOnly: false },
-    { id: 'register', icon: '➕', label: 'Register Student', adminOnly: true },
-    { id: 'classes', icon: '🏫', label: 'Manage Classes', adminOnly: true },
-    { id: 'subjects', icon: '📚', label: 'Subjects', adminOnly: true },
-    { id: 'admin', icon: '👑', label: 'Admin', adminOnly: true },
-    { id: 'backup', icon: '💾', label: 'Backup', adminOnly: true },
+    { id: 'profile', icon: '👤', label: 'Profile', roles: ['superadmin', 'teacher', 'student'] },
+    { id: 'self-register', icon: '📝', label: 'Register Yourself', roles: ['student'] },
+    { id: 'exports', icon: '📊', label: 'Student Exports', roles: ['superadmin', 'teacher'] },
+    { id: 'attendance-exports', icon: '📈', label: 'Attendance Exports', roles: ['superadmin', 'teacher'] },
+    { id: 'medical', icon: '🏥', label: 'Medical Leave', roles: ['superadmin', 'teacher'] },
+    { id: 'register', icon: '➕', label: 'Register Student', roles: ['superadmin', 'teacher'] },
+    { id: 'classes', icon: '🏫', label: 'Manage Classes', roles: ['superadmin'] },
+    { id: 'subjects', icon: '📚', label: 'Subjects', roles: ['superadmin'] },
+    { id: 'admin', icon: '👑', label: 'Admin', roles: ['superadmin'] },
+    { id: 'backup', icon: '💾', label: 'Backup', roles: ['superadmin'] },
   ];
 
-  const visibleTabs = tabs.filter(tab => !tab.adminOnly || user.role === 'superadmin');
+  const visibleTabs = tabs.filter(tab => tab.roles.includes(user.role));
 
   const superadminAccess = [
     'Full system access',
@@ -79,7 +88,13 @@ export default function UserProfile({ user, showMessage }) {
     'Medical leave management'
   ];
 
-  const accessList = user.role === 'superadmin' ? superadminAccess : teacherAccess;
+  const studentAccess = [
+    'Self-registration',
+    'View profile'
+  ];
+
+  const accessList = user.role === 'superadmin' ? superadminAccess : 
+                     user.role === 'teacher' ? teacherAccess : studentAccess;
 
   return (
     <div className="user-profile-container">
@@ -205,8 +220,14 @@ export default function UserProfile({ user, showMessage }) {
               </div>
             )}
 
-            {activeSection === 'register' && user.role === 'superadmin' && (
-              <RequireAuth roles={['superadmin']}>
+            {activeSection === 'self-register' && user.role === 'student' && (
+              <RequireAuth roles={['student']}>
+                <StudentSelfRegister showMessage={showMessage} />
+              </RequireAuth>
+            )}
+
+            {activeSection === 'register' && ['superadmin', 'teacher'].includes(user.role) && (
+              <RequireAuth roles={['superadmin', 'teacher']}>
                 <RegisterStudentAdmin showMessage={showMessage} />
               </RequireAuth>
             )}

@@ -88,7 +88,8 @@ export default function UserCreationForm({ onUserCreated }) {
 
   const roles = [
     { id: 'teacher', icon: '👨‍🏫', title: 'Teacher', desc: 'Mark attendance, manage students, view analytics' },
-    { id: 'superadmin', icon: '👑', title: 'Super Admin', desc: 'Full system access, user management' }
+    { id: 'superadmin', icon: '👑', title: 'Super Admin', desc: 'Full system access, user management' },
+    { id: 'student', icon: '🎓', title: 'Student', desc: 'Self-registration, view profile only' }
   ];
 
   return (

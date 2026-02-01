@@ -787,6 +787,48 @@ async def register_student_legacy(
     )
 
 
+@router.post("/self-register")
+async def student_self_register(
+    name: str = Form(...),
+    age: int = Form(...),
+    roll_no: str = Form(...),
+    prn: str = Form(...),
+    seat_no: str = Form(...),
+    class_id: Optional[int] = Form(None),
+    class_name: Optional[str] = Form(None),
+    class_section: Optional[str] = Form(None),
+    email: Optional[str] = Form(None),
+    phone: Optional[str] = Form(None),
+    gender: Optional[str] = Form(None),
+    blood_group: Optional[str] = Form(None),
+    parents_mobile: Optional[str] = Form(None),
+    image: Optional[UploadFile] = File(None),
+    images: Optional[List[UploadFile]] = File(None),
+    db: Session = Depends(get_db),
+    face_recognizer = Depends(get_face_recognizer),
+    current_user = Depends(get_current_user)
+):
+    """
+    Self-registration endpoint for students.
+    Allows users with 'student' role to register themselves in the system.
+    """
+    # Verify that the current user has 'student' role
+    if current_user.role != "student":
+        raise HTTPException(
+            status_code=403, 
+            detail="Only users with student role can use self-registration"
+        )
+    
+    # Redirect to main registration logic
+    return await register_student(
+        name=name, age=age, roll_no=roll_no, prn=prn, seat_no=seat_no,
+        class_id=class_id, class_name=class_name, class_section=class_section,
+        email=email, phone=phone, gender=gender, blood_group=blood_group,
+        parents_mobile=parents_mobile, image=image, images=images,
+        db=db, face_recognizer=face_recognizer, current_user=current_user
+    )
+
+
 @router.put("/{student_id}")
 async def update_student(
     student_id: int,
@@ -971,8 +1013,15 @@ async def delete_student(
     face_recognizer = Depends(get_face_recognizer),
     current_user = Depends(get_current_user)
 ):
-    """Delete a student"""
+    """Delete a student - Only superadmin can delete students"""
     try:
+        # Only superadmin can delete students
+        if current_user.role != "superadmin":
+            raise HTTPException(
+                status_code=403, 
+                detail="Only administrators can delete students. Teachers can only add and edit students."
+            )
+        
         student = db.query(Student).filter(Student.id == student_id).first()
         if not student:
             raise HTTPException(status_code=404, detail="Student not found")

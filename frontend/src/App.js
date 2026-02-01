@@ -14,6 +14,7 @@ import UserProfile from './components/UserProfile';
 import BootstrapAdmin from './components/BootstrapAdmin';
 import UpgradeEmbeddingsModal from './components/UpgradeEmbeddingsModal';
 import EditStudentModal from './components/EditStudentModal';
+import DeleteConfirmationModal from './components/DeleteConfirmationModal';
 import './styles/upgrade-modal.css';
 import './styles/edit-student-modal.css';
 import './styles/attendance-confirm-modal.css';
@@ -22,8 +23,12 @@ import { fetchStudents, fetchAttendanceData, fetchSessionRecords, deleteStudent,
 const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:8000';
 
 function AppShell() {
-  // UI
-  const [activeTab, setActiveTab] = useState('attendance');
+  // Get current user for role-based rendering
+  const { user: currentUser } = useAuth();
+  const isStudent = currentUser?.role === 'student';
+  
+  // UI - For students, default to 'user' tab
+  const [activeTab, setActiveTab] = useState(isStudent ? 'user' : 'attendance');
   const [message, setMessage] = useState(null);
 
   // System stats (header)
@@ -42,6 +47,10 @@ function AppShell() {
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
   const [upgradeStudent, setUpgradeStudent] = useState(null);
 
+  // Delete Confirmation Modal
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [studentToDelete, setStudentToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Attendance
   const [attendanceForm, setAttendanceForm] = useState({ sessionName: '', classPhoto: null, class_id: '' });
@@ -304,14 +313,31 @@ function AppShell() {
     }
   };
 
+  // Open delete confirmation modal (triggers 2-step confirmation)
+  const openDeleteModal = (studentId, name) => {
+    setStudentToDelete({ id: studentId, name: name });
+    setDeleteModalOpen(true);
+  };
+
+  // Close delete modal
+  const closeDeleteModal = () => {
+    setDeleteModalOpen(false);
+    setStudentToDelete(null);
+    setIsDeleting(false);
+  };
+
+  // Actual delete handler (called after 2-step confirmation)
   const handleDeleteStudent = async (studentId, name) => {
     try {
+      setIsDeleting(true);
       await deleteStudent(studentId);
-      showMessage(`Deleted ${name}`, 'success');
+      showMessage(`Successfully deleted ${name}`, 'success');
+      closeDeleteModal();
       await loadStudents();
     } catch (e) {
       console.error(e);
       showMessage(e.message || 'Error deleting student', 'error');
+      setIsDeleting(false);
     }
   };
 
@@ -430,30 +456,37 @@ function AppShell() {
           <img src="/logo.jpeg" alt="Logo" className="sidebar-logo-img" />
           <div className="sidebar-title">Bharati Facify</div>
         </div>
-        <button className={`beautified-tab ${activeTab === 'attendance' ? 'active' : ''}`} onClick={() => setActiveTab('attendance')}>
-          <span className="tab-icon">📸</span>
-          <span className="tab-label">Mark Attendance</span>
-          {activeTab === 'attendance' && <span className="nav-indicator" />}
-        </button>
-        <button className={`beautified-tab ${activeTab === 'view-attendance' ? 'active' : ''}`} onClick={() => setActiveTab('view-attendance')}>
-          <span className="tab-icon">📊</span>
-          <span className="tab-label">View Attendance</span>
-          {activeTab === 'view-attendance' && <span className="nav-indicator" />}
-        </button>
+        {/* Hide other tabs from students - only show Profile/User tab */}
+        {!isStudent && (
+          <button className={`beautified-tab ${activeTab === 'attendance' ? 'active' : ''}`} onClick={() => setActiveTab('attendance')}>
+            <span className="tab-icon">📸</span>
+            <span className="tab-label">Mark Attendance</span>
+            {activeTab === 'attendance' && <span className="nav-indicator" />}
+          </button>
+        )}
+        {!isStudent && (
+          <button className={`beautified-tab ${activeTab === 'view-attendance' ? 'active' : ''}`} onClick={() => setActiveTab('view-attendance')}>
+            <span className="tab-icon">📊</span>
+            <span className="tab-label">View Attendance</span>
+            {activeTab === 'view-attendance' && <span className="nav-indicator" />}
+          </button>
+        )}
         {/* Exports tab removed; moved under User/Admin tab */}
-        <button className={`beautified-tab ${activeTab === 'manage-students' ? 'active' : ''}`} onClick={() => setActiveTab('manage-students')}>
-          <span className="tab-icon">🧑‍🎓</span>
-          <span className="tab-label">Manage Students</span>
-          {activeTab === 'manage-students' && <span className="nav-indicator" />}
-        </button>
+        {!isStudent && (
+          <button className={`beautified-tab ${activeTab === 'manage-students' ? 'active' : ''}`} onClick={() => setActiveTab('manage-students')}>
+            <span className="tab-icon">🧑‍🎓</span>
+            <span className="tab-label">Manage Students</span>
+            {activeTab === 'manage-students' && <span className="nav-indicator" />}
+          </button>
+        )}
         {/* User/Admin tab: label depends on role */}
         <button className={`beautified-tab ${activeTab === 'user' ? 'active' : ''}`} onClick={() => setActiveTab('user')}>
-          <span className="tab-icon">🛡️</span>
+          <span className="tab-icon">{isStudent ? '🎓' : '🛡️'}</span>
           <span className="tab-label">{(() => {
-            const u = useAuth()?.user;
-            if (!u) return 'User';
-            if (u.role === 'superadmin') return 'Admin';
-            const name = (u.username || '').split(/\s|\.|_|-/)[0] || 'User';
+            if (!currentUser) return 'User';
+            if (currentUser.role === 'superadmin') return 'Admin';
+            if (currentUser.role === 'student') return 'Profile';
+            const name = (currentUser.username || '').split(/\s|\.|_|-/)[0] || 'User';
             return name.charAt(0).toUpperCase() + name.slice(1);
           })()}</span>
           {activeTab === 'user' && <span className="nav-indicator" />}
@@ -525,9 +558,10 @@ function AppShell() {
             <ManageStudents
               students={students}
               onEdit={startEditStudent}
-              onDelete={handleDeleteStudent}
+              onDelete={openDeleteModal}
               onToggle={handleToggleStatus}
               onUpgradeEmbeddings={handleUpgradeEmbeddings}
+              userRole={currentUser?.role}
             />
           )}
 
@@ -565,6 +599,16 @@ function AppShell() {
           updating={updating}
         />
       )}
+      
+      {/* Delete Confirmation Modal (2-step) */}
+      <DeleteConfirmationModal
+        isOpen={deleteModalOpen}
+        onClose={closeDeleteModal}
+        onConfirm={handleDeleteStudent}
+        studentName={studentToDelete?.name || ''}
+        studentId={studentToDelete?.id}
+        isDeleting={isDeleting}
+      />
     </div>
   );
 }

@@ -18,8 +18,9 @@ const buildPhotoUrl = (student) => {
   return `${API_BASE}${photoUrl}${sep}v=${encodeURIComponent(ver)}`;
 };
 
-const StudentCard = ({ student, onEdit, onDelete, onToggle, onViewDetails, onUpgradeEmbeddings }) => {
+const StudentCard = ({ student, onEdit, onDelete, onToggle, onViewDetails, onUpgradeEmbeddings, userRole }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const canDelete = userRole === 'superadmin'; // Only superadmin can delete students
   const DEFAULT_AVATAR = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjEyMCIgdmlld0JveD0iMCAwIDEyMCAxMjAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMjAiIGhlaWdodD0iMTIwIiBmaWxsPSIjRjhGOUZBIi8+CjxjaXJjbGUgY3g9IjYwIiBjeT0iNDUiIHI9IjE4IiBmaWxsPSIjOUNBM0FGIi8+CjxwYXRoIGQ9Ik0yNSA5NUMzMCA4MCA0NCA3MCA2MCA3MEM3NiA3MCA5MCA4MCA5NSA5NUwyNSA5NVoiIGZpbGw9IiM5Q0EzQUYiLz4KPHN2Zz4K';
 
   const handleImageError = (e) => {
@@ -191,10 +192,13 @@ const StudentCard = ({ student, onEdit, onDelete, onToggle, onViewDetails, onUpg
             <span className="btn-icon">✏️</span>
             Edit
           </button>
-          <button className="modern-btn danger" onClick={() => onDelete(student.id, student.name)}>
-            <span className="btn-icon">🗑️</span>
-            Delete
-          </button>
+          {/* Delete button - Only visible for superadmin */}
+          {canDelete && (
+            <button className="modern-btn danger" onClick={() => onDelete(student.id, student.name)}>
+              <span className="btn-icon">🗑️</span>
+              Delete
+            </button>
+          )}
           
           {/* Upgrade/Re-upgrade AI Embeddings Button - Always show */}
           {onUpgradeEmbeddings && (
@@ -223,6 +227,7 @@ StudentCard.propTypes = {
   onDelete: PropTypes.func.isRequired,
   onToggle: PropTypes.func.isRequired,
   onViewDetails: PropTypes.func.isRequired,
+  userRole: PropTypes.string,
 };
 
 export default StudentCard;

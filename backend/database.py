@@ -52,7 +52,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(150), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
-    role = Column(String(50), nullable=False, index=True)  # "superadmin" | "teacher"
+    role = Column(String(50), nullable=False, index=True)  # "superadmin" | "teacher" | "student"
     is_active = Column(Boolean, default=True)
     is_primary_admin = Column(Boolean, default=False)  # Protected superadmin (cannot be modified by others)
     created_at = Column(DateTime, default=datetime.utcnow)

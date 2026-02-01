@@ -83,6 +83,14 @@
   background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
 }
 
+.user-role-badge.student {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.user-avatar.student {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
 /* User Info Section */
 .user-info-section {
   border-top: 1px solid #e2e8f0;

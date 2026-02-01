@@ -116,12 +116,12 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 class CreateUserRequest(BaseModel):
     username: str
     password: str
-    role: str  # "teacher" | "superadmin"
+    role: str  # "teacher" | "superadmin" | "student"
 
 
 @router.post("/users", response_model=UserOut)
 def create_user(payload: CreateUserRequest, db: Session = Depends(get_db), _: User = Depends(require_superadmin)):
-    if payload.role not in ("teacher", "superadmin"):
+    if payload.role not in ("teacher", "superadmin", "student"):
         raise HTTPException(status_code=400, detail="Invalid role")
     existing = get_user_by_username(db, payload.username)
     if existing:
@@ -193,7 +193,7 @@ def bootstrap_superadmin(payload: BootstrapRequest, db: Session = Depends(get_db
 
 
 class UpdateUserRoleRequest(BaseModel):
-    role: str  # "teacher" | "superadmin"
+    role: str  # "teacher" | "superadmin" | "student"
 
 
 @router.put("/users/{user_id}/role", response_model=UserOut)
@@ -205,8 +205,8 @@ def update_user_role(
 ):
     """Update a user's role (superadmin only)"""
     # Validate role
-    if payload.role not in ("teacher", "superadmin"):
-        raise HTTPException(status_code=400, detail="Invalid role. Must be 'teacher' or 'superadmin'")
+    if payload.role not in ("teacher", "superadmin", "student"):
+        raise HTTPException(status_code=400, detail="Invalid role. Must be 'teacher', 'superadmin', or 'student'")
     
     # Get the target user
     target_user = db.query(User).filter(User.id == user_id).first()
