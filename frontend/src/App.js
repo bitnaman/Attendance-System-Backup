@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
-import MarkAttendance from './components/MarkAttendance';
+import { MarkAttendanceNew } from './components/mark-attendance';
 import ViewAttendance from './components/ViewAttendance';
-import ManageStudents from './components/ManageStudents';
+import ManageStudentsNew from './components/ManageStudentsNew';
 import BackupManager from './components/BackupManager';
 import AdminUsers from './components/AdminUsers';
 import Login from './Login';
 import { AuthProvider, RequireAuth, useAuth } from './AuthContext';
 import ExportPanel from './components/ExportPanel';
 import MedicalLeave from './components/MedicalLeave';
-import BatchAttendance from './components/BatchAttendance';
 import UserProfile from './components/UserProfile';
 import BootstrapAdmin from './components/BootstrapAdmin';
 import UpgradeEmbeddingsModal from './components/UpgradeEmbeddingsModal';
@@ -17,7 +16,6 @@ import EditStudentModal from './components/EditStudentModal';
 import DeleteConfirmationModal from './components/DeleteConfirmationModal';
 import './styles/upgrade-modal.css';
 import './styles/edit-student-modal.css';
-import './styles/attendance-confirm-modal.css';
 import { fetchStudents, fetchAttendanceData, fetchSessionRecords, deleteStudent, toggleStudentStatus } from './api';
 
 const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:8000';
@@ -135,6 +133,11 @@ function AppShell() {
   const loadSessionRecords = async (sessionId) => {
     try {
       setSelectedSession(sessionId);
+      // Don't fetch records if sessionId is null (modal closing)
+      if (!sessionId) {
+        setAttendanceRecords([]);
+        return;
+      }
       const data = await fetchSessionRecords(sessionId);
       setAttendanceRecords(data);
     } catch (e) {
@@ -497,7 +500,7 @@ function AppShell() {
         <div className="tab-content">
           {activeTab === 'attendance' && (
             <>
-              <MarkAttendance
+              <MarkAttendanceNew
                 attendanceForm={attendanceForm}
                 setAttendanceForm={setAttendanceForm}
                 onSubmit={handleAttendanceSubmit}
@@ -555,7 +558,7 @@ function AppShell() {
 
 
           {activeTab === 'manage-students' && (
-            <ManageStudents
+            <ManageStudentsNew
               students={students}
               onEdit={startEditStudent}
               onDelete={openDeleteModal}
@@ -565,16 +568,12 @@ function AppShell() {
             />
           )}
 
-          {activeTab === 'user' && (() => {
-            const u = useAuth()?.user;
-            if (!u) return null;
-            return (
-              <UserProfile 
-                user={u} 
-                showMessage={showMessage}
-              />
-            );
-          })()}
+          {activeTab === 'user' && currentUser && (
+            <UserProfile 
+              user={currentUser} 
+              showMessage={showMessage}
+            />
+          )}
         </div>
       </main>
       
@@ -614,7 +613,8 @@ function AppShell() {
 }
 
 function App() {
-  const { token } = useAuth() || {};
+  const auth = useAuth();
+  const token = auth?.token;
   const [needsBootstrap, setNeedsBootstrap] = useState(null);
   const [checkingBootstrap, setCheckingBootstrap] = useState(true);
 

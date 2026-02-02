@@ -11,6 +11,8 @@ import SubjectManagement from './SubjectManagement';
 import StudentSelfRegister from './StudentSelfRegister';
 import '../styles/user-profile.css';
 
+const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:8000';
+
 export default function UserProfile({ user, showMessage }) {
   const { logout } = useAuth();
   // For students, default to self-register section; for others, default to profile
@@ -103,7 +105,19 @@ export default function UserProfile({ user, showMessage }) {
         <div className="user-sidebar-card">
           <div className="user-avatar-section">
             <div className={`user-avatar ${getRoleClass(user.role)}`}>
-              {getInitials(user.username)}
+              {user.profile_photo ? (
+                <img 
+                  src={user.profile_photo.startsWith('http') ? user.profile_photo : `${API_BASE}${user.profile_photo}`}
+                  alt={user.username}
+                  className="user-avatar-img"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.parentNode.textContent = getInitials(user.username);
+                  }}
+                />
+              ) : (
+                getInitials(user.username)
+              )}
             </div>
             <h3 className="user-name">{user.username}</h3>
             <span className={`user-role-badge ${getRoleClass(user.role)}`}>

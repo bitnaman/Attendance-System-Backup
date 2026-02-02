@@ -1,6 +1,7 @@
 """
-SQLite-Based Dental Attendance System - Main Backend
+Dental Attendance System - Main Backend
 Enhanced with environment-based storage support and comprehensive logging.
+Supports both PostgreSQL and SQLite databases.
 """
 
 # Suppress TensorFlow and CUDA warnings before any imports
@@ -96,7 +97,8 @@ async def lifespan(app: FastAPI):
         
         # Initialize database tables if they don't exist (preserves existing data)
         create_all_tables()
-        logger.info("SQLite database initialized")
+        db_type = "PostgreSQL" if DATABASE_TYPE == "postgresql" else "SQLite"
+        logger.info(f"{db_type} database initialized")
         
         # Run migrations for model tracking columns
         try:
@@ -184,12 +186,13 @@ app.include_router(medical_router)
 @app.get("/health")
 async def health_check(recognizer: ClassBasedFaceRecognizer = Depends(get_face_recognizer)):
     recognizer_status = "active" if recognizer else "inactive"
+    db_type = "PostgreSQL" if DATABASE_TYPE == "postgresql" else "SQLite"
     
     return {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
         "version": "6.0.0",
-        "database": "SQLite",
+        "database": db_type,
         "face_recognition_status": recognizer_status,
         "features": {
             "class_based_attendance": True,
@@ -197,7 +200,7 @@ async def health_check(recognizer: ClassBasedFaceRecognizer = Depends(get_face_r
             "no_data_migration": True
         },
         "system_info": {
-            "database": "SQLite connected",
+            "database": f"{db_type} connected",
             "static_files": "mounted",
             "cors": "enabled",
             "class_support": "enabled"
@@ -206,10 +209,11 @@ async def health_check(recognizer: ClassBasedFaceRecognizer = Depends(get_face_r
 
 @app.get("/")
 async def root():
+    db_type = "PostgreSQL" if DATABASE_TYPE == "postgresql" else "SQLite"
     return {
         "message": "Dental Attendance System API",
         "version": "6.0.0",
-        "database": "SQLite",
+        "database": db_type,
         "features": [
             "Class-based student management",
             "Class-specific attendance marking", 

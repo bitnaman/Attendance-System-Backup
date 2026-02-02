@@ -2,10 +2,11 @@
 Authentication and user management endpoints.
 """
 import os
+import uuid
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Form, UploadFile, File
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -61,6 +62,12 @@ class UserOut(BaseModel):
     role: str
     is_active: bool
     is_primary_admin: bool = False
+    profile_photo: Optional[str] = None
+    # Soft delete fields
+    is_deleted: bool = False
+    deleted_at: Optional[datetime] = None
+    deletion_reason: Optional[str] = None
+    deleted_by_id: Optional[int] = None
 
     class Config:
         from_attributes = True
@@ -73,6 +80,9 @@ def get_user_by_username(db: Session, username: str) -> Optional[User]:
 def authenticate_user(db: Session, username: str, password: str) -> Optional[User]:
     user = get_user_by_username(db, username)
     if not user or not user.is_active:
+        return None
+    # Prevent deleted users from logging in
+    if user.is_deleted:
         return None
     if not verify_password(password, user.password_hash):
         return None
@@ -119,6 +129,24 @@ class CreateUserRequest(BaseModel):
     role: str  # "teacher" | "superadmin" | "student"
 
 
+# Profile photo storage path
+PROFILE_PHOTO_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "profiles")
+os.makedirs(PROFILE_PHOTO_DIR, exist_ok=True)
+
+
+async def save_profile_photo(file: UploadFile, username: str) -> str:
+    """Save profile photo and return the URL path."""
+    ext = os.path.splitext(file.filename)[1].lower() or ".jpg"
+    filename = f"{username}_{uuid.uuid4().hex[:8]}{ext}"
+    filepath = os.path.join(PROFILE_PHOTO_DIR, filename)
+    
+    content = await file.read()
+    with open(filepath, "wb") as f:
+        f.write(content)
+    
+    return f"/static/profiles/{filename}"
+
+
 @router.post("/users", response_model=UserOut)
 def create_user(payload: CreateUserRequest, db: Session = Depends(get_db), _: User = Depends(require_superadmin)):
     if payload.role not in ("teacher", "superadmin", "student"):
@@ -133,6 +161,71 @@ def create_user(payload: CreateUserRequest, db: Session = Depends(get_db), _: Us
         is_active=True,
     )
     db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.post("/users/with-photo", response_model=UserOut)
+async def create_user_with_photo(
+    username: str = Form(...),
+    password: str = Form(...),
+    role: str = Form(...),
+    photo: UploadFile = File(None),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_superadmin)
+):
+    """Create a new user with optional profile photo."""
+    if role not in ("teacher", "superadmin", "student"):
+        raise HTTPException(status_code=400, detail="Invalid role")
+    existing = get_user_by_username(db, username)
+    if existing:
+        raise HTTPException(status_code=409, detail="Username already exists")
+    
+    profile_photo_path = None
+    if photo and photo.filename:
+        profile_photo_path = await save_profile_photo(photo, username)
+    
+    user = User(
+        username=username,
+        password_hash=get_password_hash(password),
+        role=role,
+        profile_photo=profile_photo_path,
+        is_active=True,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.put("/users/{user_id}/photo", response_model=UserOut)
+async def update_user_photo(
+    user_id: int,
+    photo: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Update user's profile photo. Users can update their own, superadmins can update anyone's."""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Check permissions
+    if current_user.role != "superadmin" and current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to update this user's photo")
+    
+    # Delete old photo if exists
+    if user.profile_photo:
+        old_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), user.profile_photo.lstrip("/"))
+        if os.path.exists(old_path):
+            try:
+                os.remove(old_path)
+            except:
+                pass
+    
+    profile_photo_path = await save_profile_photo(photo, user.username)
+    user.profile_photo = profile_photo_path
     db.commit()
     db.refresh(user)
     return user
@@ -232,6 +325,134 @@ def update_user_role(
     db.refresh(target_user)
     
     return target_user
+
+
+# ============================================
+# SOFT DELETE MANAGEMENT
+# ============================================
+
+class DeleteUserRequest(BaseModel):
+    reason: str  # Required reason for deletion
+
+
+@router.delete("/users/{user_id}", response_model=UserOut)
+def soft_delete_user(
+    user_id: int,
+    payload: DeleteUserRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_superadmin)
+):
+    """
+    Soft delete a user (superadmin only).
+    - User is marked as deleted but remains in the system for 45 days
+    - Deleted users cannot login
+    - A reason must be provided
+    """
+    # Get the target user
+    target_user = db.query(User).filter(User.id == user_id).first()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Cannot delete yourself
+    if target_user.id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot delete your own account")
+    
+    # 🔒 PROTECT PRIMARY ADMIN: Cannot delete primary admin
+    if target_user.is_primary_admin:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Cannot delete primary admin '{target_user.username}'. This account is protected."
+        )
+    
+    # Check if already deleted
+    if target_user.is_deleted:
+        raise HTTPException(status_code=400, detail="User is already deleted")
+    
+    # Validate reason
+    if not payload.reason or len(payload.reason.strip()) < 5:
+        raise HTTPException(status_code=400, detail="Deletion reason must be at least 5 characters")
+    
+    # Soft delete the user
+    target_user.is_deleted = True
+    target_user.deleted_at = datetime.utcnow()
+    target_user.deletion_reason = payload.reason.strip()
+    target_user.deleted_by_id = current_user.id
+    target_user.is_active = False  # Also deactivate
+    target_user.updated_at = datetime.utcnow()
+    
+    db.commit()
+    db.refresh(target_user)
+    
+    return target_user
+
+
+@router.post("/users/{user_id}/restore", response_model=UserOut)
+def restore_deleted_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_superadmin)
+):
+    """Restore a soft-deleted user (superadmin only)."""
+    target_user = db.query(User).filter(User.id == user_id).first()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if not target_user.is_deleted:
+        raise HTTPException(status_code=400, detail="User is not deleted")
+    
+    # Restore the user
+    target_user.is_deleted = False
+    target_user.deleted_at = None
+    target_user.deletion_reason = None
+    target_user.deleted_by_id = None
+    target_user.is_active = True
+    target_user.updated_at = datetime.utcnow()
+    
+    db.commit()
+    db.refresh(target_user)
+    
+    return target_user
+
+
+@router.delete("/users/cleanup/expired")
+def cleanup_expired_deleted_users(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_superadmin)
+):
+    """
+    Permanently delete users that were soft-deleted more than 45 days ago.
+    This is a manual cleanup endpoint for superadmins.
+    """
+    from datetime import timedelta
+    
+    cutoff_date = datetime.utcnow() - timedelta(days=45)
+    
+    expired_users = db.query(User).filter(
+        User.is_deleted == True,
+        User.deleted_at < cutoff_date
+    ).all()
+    
+    deleted_count = len(expired_users)
+    deleted_usernames = [u.username for u in expired_users]
+    
+    for user in expired_users:
+        # Delete profile photo if exists
+        if user.profile_photo:
+            photo_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), user.profile_photo.lstrip("/"))
+            if os.path.exists(photo_path):
+                try:
+                    os.remove(photo_path)
+                except:
+                    pass
+        db.delete(user)
+    
+    db.commit()
+    
+    return {
+        "message": f"Permanently deleted {deleted_count} expired user(s)",
+        "deleted_users": deleted_usernames,
+        "cutoff_date": cutoff_date.isoformat()
+    }
 
 
 class ResetPasswordRequest(BaseModel):

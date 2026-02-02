@@ -1043,3 +1043,429 @@
     flex-wrap: wrap;
   }
 }
+/* ===== MEDICAL LEAVE MOBILE FIXES ===== */
+@media (max-width: 768px) {
+  /* Medical Leave form grid fixes */
+  .admin-section form[style*="display: grid"] {
+    max-width: 100% !important;
+  }
+  
+  /* Force single column on mobile for all grids inside admin panels */
+  .admin-section [style*="gridTemplateColumns: '1fr 1fr'"],
+  .admin-section [style*="grid-template-columns: 1fr 1fr"],
+  .admin-section div[style*="gridTemplateColumns"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ===== PROFILE PHOTO AVATAR ===== */
+.user-avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.user-item-avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* Photo upload preview */
+.photo-upload-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.photo-preview-container {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.photo-preview {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #667eea;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.photo-preview-placeholder {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  color: #94a3b8;
+  border: 2px dashed #cbd5e1;
+}
+
+.photo-upload-input {
+  display: none;
+}
+
+.photo-upload-btn {
+  padding: 0.625rem 1rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  transition: all 0.2s ease;
+}
+
+.photo-upload-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.photo-remove-btn {
+  padding: 0.5rem 0.75rem;
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fca5a5;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.photo-remove-btn:hover {
+  background: #fecaca;
+}
+
+/* ===== DELETE USER MODAL ===== */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.delete-user-modal {
+  background: white;
+  border-radius: 16px;
+  max-width: 480px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+.delete-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.25rem 1.5rem;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border-bottom: 1px solid #fcd34d;
+}
+
+.delete-modal-icon {
+  font-size: 1.5rem;
+}
+
+.delete-modal-header h3 {
+  margin: 0;
+  flex: 1;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #92400e;
+}
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  font-size: 1.25rem;
+  color: #92400e;
+  cursor: pointer;
+  padding: 0.25rem;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.modal-close-btn:hover {
+  opacity: 1;
+}
+
+.delete-user-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.delete-user-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 1.25rem;
+  font-weight: 600;
+  overflow: hidden;
+}
+
+.delete-user-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.delete-user-details {
+  flex: 1;
+}
+
+.delete-user-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1a202c;
+}
+
+.delete-user-role {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin-top: 0.25rem;
+}
+
+.delete-modal-content {
+  padding: 1.5rem;
+}
+
+.delete-warning-box {
+  display: flex;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border: 1px solid #fcd34d;
+  border-radius: 10px;
+  margin-bottom: 1.25rem;
+}
+
+.delete-warning-box .warning-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.delete-warning-box strong {
+  color: #92400e;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.delete-warning-box ul {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: #78350f;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.delete-confirm-box {
+  display: flex;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  border: 1px solid #fca5a5;
+  border-radius: 10px;
+  margin-bottom: 1.25rem;
+}
+
+.delete-confirm-box .confirm-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.delete-confirm-box strong {
+  color: #991b1b;
+  display: block;
+  margin-bottom: 0.375rem;
+}
+
+.delete-confirm-box p {
+  margin: 0.5rem 0;
+  color: #7f1d1d;
+  font-size: 0.9rem;
+}
+
+.reason-preview {
+  margin-top: 0.75rem;
+  padding: 0.625rem;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: #7f1d1d;
+}
+
+.delete-modal-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+  justify-content: flex-end;
+}
+
+.btn-secondary {
+  padding: 0.625rem 1.25rem;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #e2e8f0;
+}
+
+.btn-warning {
+  padding: 0.625rem 1.25rem;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-warning:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+}
+
+.btn-danger {
+  padding: 0.625rem 1.25rem;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  transition: all 0.2s ease;
+}
+
+.btn-danger:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.btn-danger:disabled,
+.btn-secondary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ===== DELETED USER STYLES ===== */
+.user-list-item.deleted {
+  opacity: 0.6;
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+  border: 1px dashed #fca5a5;
+}
+
+.user-list-item.deleted .user-item-avatar {
+  filter: grayscale(70%);
+}
+
+.user-list-item.deleted .user-item-name {
+  text-decoration: line-through;
+  color: #9ca3af;
+}
+
+.deleted-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+  border: 1px solid #fca5a5;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  color: #dc2626;
+  font-weight: 500;
+}
+
+.deletion-info {
+  margin-top: 0.375rem;
+  padding: 0.375rem 0.5rem;
+  background: #fef2f2;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  color: #991b1b;
+}
+
+.deletion-reason {
+  font-style: italic;
+  margin-top: 0.25rem;
+}
+
+.restore-btn {
+  padding: 0.375rem 0.625rem;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  transition: all 0.2s ease;
+}
+
+.restore-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.delete-btn {
+  padding: 0.375rem 0.625rem;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  transition: all 0.2s ease;
+}
+
+.delete-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}

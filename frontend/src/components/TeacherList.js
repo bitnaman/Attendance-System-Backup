@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../AuthContext';
+import DeleteUserModal from './DeleteUserModal';
 import '../styles/user-profile.css';
 
 const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:8000';
@@ -11,8 +12,15 @@ export default function TeacherList({ onRefresh }) {
   const [error, setError] = useState(null);
   const [updatingRole, setUpdatingRole] = useState(null);
   const [resettingPassword, setResettingPassword] = useState(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
+  const [restoringUser, setRestoringUser] = useState(null);
 
-  const fetchTeachers = async () => {
+  const fetchTeachers = useCallback(async () => {
+    if (!token) {
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       setError(null);
@@ -23,7 +31,12 @@ export default function TeacherList({ onRefresh }) {
         },
       });
 
-      if (!response.ok) throw new Error('Failed to fetch teachers');
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Session expired. Please log in again.');
+        }
+        throw new Error('Failed to fetch teachers');
+      }
       const data = await response.json();
       setTeachers(data);
     } catch (err) {
@@ -31,10 +44,10 @@ export default function TeacherList({ onRefresh }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
 
-  useEffect(() => { fetchTeachers(); }, [token]);
-  useEffect(() => { if (onRefresh) fetchTeachers(); }, [onRefresh]);
+  useEffect(() => { fetchTeachers(); }, [fetchTeachers]);
+  useEffect(() => { if (onRefresh) fetchTeachers(); }, [onRefresh, fetchTeachers]);
 
   const getRoleColor = (role) => {
     return role === 'superadmin' ? '#e74c3c' : role === 'teacher' ? '#3498db' : '#95a5a6';
@@ -111,6 +124,78 @@ export default function TeacherList({ onRefresh }) {
     }
   };
 
+  const openDeleteModal = (teacher) => {
+    setUserToDelete(teacher);
+    setDeleteModalOpen(true);
+  };
+
+  const closeDeleteModal = () => {
+    setDeleteModalOpen(false);
+    setUserToDelete(null);
+  };
+
+  const handleDeleteUser = async (userId, reason) => {
+    try {
+      const response = await fetch(`${API_BASE}/auth/users/${userId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ reason }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.detail || 'Failed to delete user');
+      }
+
+      await fetchTeachers();
+      closeDeleteModal();
+      alert('✅ User has been marked for deletion. They will be permanently removed after 45 days.');
+    } catch (err) {
+      alert(`❌ Error: ${err.message}`);
+    }
+  };
+
+  const handleRestoreUser = async (userId, username) => {
+    if (restoringUser === userId) return;
+    
+    if (!window.confirm(`Restore user "${username}"?\n\nThis will reactivate their account and allow them to log in again.`)) return;
+
+    try {
+      setRestoringUser(userId);
+      const response = await fetch(`${API_BASE}/auth/users/${userId}/restore`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.detail || 'Failed to restore user');
+      }
+
+      await fetchTeachers();
+      alert(`✅ ${username} has been restored successfully.`);
+    } catch (err) {
+      alert(`❌ Error: ${err.message}`);
+    } finally {
+      setRestoringUser(null);
+    }
+  };
+
+  const formatDeletionDate = (dateStr) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-IN', { 
+      day: 'numeric', 
+      month: 'short', 
+      year: 'numeric' 
+    });
+  };
+
   if (loading) {
     return (
       <div className="user-list-card">
@@ -136,9 +221,10 @@ export default function TeacherList({ onRefresh }) {
     );
   }
 
-  const teacherCount = teachers.filter(t => t.role === 'teacher').length;
-  const superadminCount = teachers.filter(t => t.role === 'superadmin').length;
-  const activeCount = teachers.filter(t => t.is_active).length;
+  const teacherCount = teachers.filter(t => t.role === 'teacher' && !t.is_deleted).length;
+  const superadminCount = teachers.filter(t => t.role === 'superadmin' && !t.is_deleted).length;
+  const activeCount = teachers.filter(t => t.is_active && !t.is_deleted).length;
+  const deletedCount = teachers.filter(t => t.is_deleted).length;
 
   return (
     <div className="user-list-card">
@@ -180,9 +266,16 @@ export default function TeacherList({ onRefresh }) {
           <div className="stat-value">{activeCount}</div>
           <div className="stat-label">Active</div>
         </div>
+        {deletedCount > 0 && (
+          <div className="stat-item" style={{ background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)', border: '1px solid #fca5a5' }}>
+            <div className="stat-icon">🗑️</div>
+            <div className="stat-value" style={{ color: '#dc2626' }}>{deletedCount}</div>
+            <div className="stat-label" style={{ color: '#991b1b' }}>Deleted</div>
+          </div>
+        )}
         <div className="stat-item total">
           <div className="stat-icon">👥</div>
-          <div className="stat-value">{teachers.length}</div>
+          <div className="stat-value">{teachers.filter(t => !t.is_deleted).length}</div>
           <div className="stat-label">Total</div>
         </div>
       </div>
@@ -196,68 +289,133 @@ export default function TeacherList({ onRefresh }) {
         </div>
       ) : (
         <div className="user-list">
-          {teachers.map((teacher) => (
-            <div key={teacher.id} className="user-list-item">
+          {/* Active users first, then deleted users */}
+          {[...teachers].sort((a, b) => (a.is_deleted === b.is_deleted ? 0 : a.is_deleted ? 1 : -1)).map((teacher) => (
+            <div key={teacher.id} className={`user-list-item ${teacher.is_deleted ? 'deleted' : ''}`}>
               <div className="user-item-info">
                 <div 
                   className="user-item-avatar" 
-                  style={{ backgroundColor: getRoleColor(teacher.role) }}
+                  style={{ backgroundColor: teacher.profile_photo ? 'transparent' : getRoleColor(teacher.role) }}
                 >
-                  {teacher.username.charAt(0).toUpperCase()}
+                  {teacher.profile_photo ? (
+                    <img 
+                      src={teacher.profile_photo.startsWith('http') ? teacher.profile_photo : `${API_BASE}${teacher.profile_photo}`} 
+                      alt={teacher.username}
+                      className="user-item-avatar-img"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.parentNode.textContent = teacher.username.charAt(0).toUpperCase();
+                        e.target.parentNode.style.backgroundColor = getRoleColor(teacher.role);
+                      }}
+                    />
+                  ) : (
+                    teacher.username.charAt(0).toUpperCase()
+                  )}
                 </div>
                 <div className="user-item-details">
-                  <div className="user-item-name">{teacher.username}</div>
+                  <div className="user-item-name">
+                    {teacher.username}
+                    {teacher.is_deleted && (
+                      <span className="deleted-badge" style={{ marginLeft: '0.5rem' }}>
+                        🗑️ Deleted
+                      </span>
+                    )}
+                  </div>
                   <div className="user-item-id">ID: {teacher.id}</div>
+                  {teacher.is_deleted && teacher.deleted_at && (
+                    <div className="deletion-info">
+                      <div>📅 Deleted on: {formatDeletionDate(teacher.deleted_at)}</div>
+                      {teacher.deletion_reason && (
+                        <div className="deletion-reason">💬 Reason: "{teacher.deletion_reason}"</div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
               
               <div className="user-item-actions">
-                {/* Role Control */}
-                {currentUser && teacher.id !== currentUser.id && !teacher.is_primary_admin ? (
-                  <select
-                    className="role-select"
-                    value={teacher.role}
-                    onChange={(e) => handleRoleChange(teacher.id, e.target.value, teacher.username)}
-                    disabled={updatingRole === teacher.id}
-                    style={{ 
-                      borderColor: `${getRoleColor(teacher.role)}60`,
-                      color: getRoleColor(teacher.role)
-                    }}
+                {/* Show different actions based on deleted status */}
+                {teacher.is_deleted ? (
+                  /* Deleted User Actions */
+                  <button
+                    className="restore-btn"
+                    onClick={() => handleRestoreUser(teacher.id, teacher.username)}
+                    disabled={restoringUser === teacher.id}
+                    title="Restore this user"
                   >
-                    <option value="teacher">👨‍🏫 Teacher</option>
-                    <option value="superadmin">👑 Admin</option>
-                  </select>
+                    ♻️ {restoringUser === teacher.id ? 'Restoring...' : 'Restore'}
+                  </button>
                 ) : (
-                  <span className={`role-badge ${teacher.is_primary_admin ? 'protected' : ''}`}>
-                    {teacher.is_primary_admin ? '🔒' : (teacher.role === 'superadmin' ? '👑' : '👨‍🏫')}
-                    {teacher.role === 'superadmin' ? ' Admin' : ' Teacher'}
-                    {teacher.is_primary_admin && <span style={{ fontSize: '0.65rem' }}> (Protected)</span>}
-                    {currentUser && teacher.id === currentUser.id && !teacher.is_primary_admin && 
-                      <span style={{ opacity: 0.7 }}> (You)</span>}
-                  </span>
-                )}
-                
-                {/* Status */}
-                <span className={`status-badge ${teacher.is_active ? 'active' : 'inactive'}`}>
-                  {teacher.is_active ? '✅ Active' : '❌ Inactive'}
-                </span>
+                  /* Active User Actions */
+                  <>
+                    {/* Role Control */}
+                    {currentUser && teacher.id !== currentUser.id && !teacher.is_primary_admin ? (
+                      <select
+                        className="role-select"
+                        value={teacher.role}
+                        onChange={(e) => handleRoleChange(teacher.id, e.target.value, teacher.username)}
+                        disabled={updatingRole === teacher.id}
+                        style={{ 
+                          borderColor: `${getRoleColor(teacher.role)}60`,
+                          color: getRoleColor(teacher.role)
+                        }}
+                      >
+                        <option value="teacher">👨‍🏫 Teacher</option>
+                        <option value="superadmin">👑 Admin</option>
+                      </select>
+                    ) : (
+                      <span className={`role-badge ${teacher.is_primary_admin ? 'protected' : ''}`}>
+                        {teacher.is_primary_admin ? '🔒' : (teacher.role === 'superadmin' ? '👑' : '👨‍🏫')}
+                        {teacher.role === 'superadmin' ? ' Admin' : ' Teacher'}
+                        {teacher.is_primary_admin && <span style={{ fontSize: '0.65rem' }}> (Protected)</span>}
+                        {currentUser && teacher.id === currentUser.id && !teacher.is_primary_admin && 
+                          <span style={{ opacity: 0.7 }}> (You)</span>}
+                      </span>
+                    )}
+                    
+                    {/* Status */}
+                    <span className={`status-badge ${teacher.is_active ? 'active' : 'inactive'}`}>
+                      {teacher.is_active ? '✅ Active' : '❌ Inactive'}
+                    </span>
 
-                {/* Password Reset */}
-                <button
-                  className="action-btn password"
-                  onClick={() => handlePasswordReset(teacher.id, teacher.username, teacher.is_primary_admin)}
-                  disabled={resettingPassword === teacher.id}
-                  title={teacher.is_primary_admin && currentUser.username !== teacher.username 
-                    ? "Primary admin password is protected" 
-                    : "Reset password"}
-                >
-                  🔑 {resettingPassword === teacher.id ? '...' : 'Reset'}
-                </button>
+                    {/* Password Reset */}
+                    <button
+                      className="action-btn password"
+                      onClick={() => handlePasswordReset(teacher.id, teacher.username, teacher.is_primary_admin)}
+                      disabled={resettingPassword === teacher.id}
+                      title={teacher.is_primary_admin && currentUser.username !== teacher.username 
+                        ? "Primary admin password is protected" 
+                        : "Reset password"}
+                    >
+                      🔑 {resettingPassword === teacher.id ? '...' : 'Reset'}
+                    </button>
+
+                    {/* Delete Button - Only show for superadmins, not for self or primary admin */}
+                    {currentUser && currentUser.role === 'superadmin' && 
+                     teacher.id !== currentUser.id && !teacher.is_primary_admin && (
+                      <button
+                        className="delete-btn"
+                        onClick={() => openDeleteModal(teacher)}
+                        title="Delete this user"
+                      >
+                        🗑️ Delete
+                      </button>
+                    )}
+                  </>
+                )}
               </div>
             </div>
           ))}
         </div>
       )}
+
+      {/* Delete User Modal */}
+      <DeleteUserModal
+        isOpen={deleteModalOpen}
+        onClose={closeDeleteModal}
+        onConfirm={handleDeleteUser}
+        user={userToDelete}
+      />
     </div>
   );
 }

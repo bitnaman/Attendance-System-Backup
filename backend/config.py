@@ -27,13 +27,19 @@ DATABASE_TYPE = os.getenv("DATABASE_TYPE", "sqlite").lower()  # "postgresql" or 
 
 if DATABASE_TYPE == "postgresql":
     # PostgreSQL Configuration
+    from urllib.parse import quote_plus
+    
     POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
     POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
     POSTGRES_DB = os.getenv("POSTGRES_DB", "dental_attendance")
     POSTGRES_USER = os.getenv("POSTGRES_USER", "dental_user")
     POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "")
     
-    DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+    # URL-encode special characters in username and password
+    encoded_user = quote_plus(POSTGRES_USER)
+    encoded_password = quote_plus(POSTGRES_PASSWORD)
+    
+    DATABASE_URL = f"postgresql://{encoded_user}:{encoded_password}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
     DB_ENGINE_ARGS = {}  # PostgreSQL doesn't need special args
 else:
     # SQLite Configuration (default)

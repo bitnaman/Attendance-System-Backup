@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import '../styles/forms.css';
 
 const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:8000';
@@ -18,25 +18,24 @@ export default function SubjectManagement({ showMessage }) {
   });
   const [editingSubject, setEditingSubject] = useState(null);
 
-  useEffect(() => {
-    loadClasses();
-    loadSubjects();
-  }, []);
-
-  const loadClasses = async () => {
+  const loadClasses = useCallback(async () => {
     try {
       const response = await fetch(`${API_BASE}/student/classes`);
+      if (response.status === 401) {
+        showMessage?.('Session expired. Please log in again.', 'error');
+        return;
+      }
       if (response.ok) {
         const data = await response.json();
         setClasses(data);
       }
     } catch (error) {
       console.error('Failed to load classes:', error);
-      showMessage('Failed to load classes', 'error');
+      showMessage?.('Failed to load classes', 'error');
     }
-  };
+  }, [showMessage]);
 
-  const loadSubjects = async (classId = null) => {
+  const loadSubjects = useCallback(async (classId = null) => {
     try {
       setLoading(true);
       const url = classId 
@@ -44,17 +43,26 @@ export default function SubjectManagement({ showMessage }) {
         : `${API_BASE}/subjects/`;
       
       const response = await fetch(url);
+      if (response.status === 401) {
+        showMessage?.('Session expired. Please log in again.', 'error');
+        return;
+      }
       if (response.ok) {
         const data = await response.json();
         setSubjects(data);
       }
     } catch (error) {
       console.error('Failed to load subjects:', error);
-      showMessage('Failed to load subjects', 'error');
+      showMessage?.('Failed to load subjects', 'error');
     } finally {
       setLoading(false);
     }
-  };
+  }, [showMessage]);
+
+  useEffect(() => {
+    loadClasses();
+    loadSubjects();
+  }, [loadClasses, loadSubjects]);
 
   const handleClassFilter = (classId) => {
     setSelectedClass(classId);

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useAuth } from '../AuthContext';
 import '../styles/user-profile.css';
 
@@ -12,6 +12,9 @@ export default function UserCreationForm({ onUserCreated }) {
     confirmPassword: '',
     role: 'teacher'
   });
+  const [profilePhoto, setProfilePhoto] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
+  const fileInputRef = useRef(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [errors, setErrors] = useState({});
@@ -43,6 +46,24 @@ export default function UserCreationForm({ onUserCreated }) {
     return Object.keys(newErrors).length === 0;
   };
 
+  const handlePhotoChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setProfilePhoto(file);
+      const reader = new FileReader();
+      reader.onload = (e) => setPhotoPreview(e.target.result);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const clearPhoto = () => {
+    setProfilePhoto(null);
+    setPhotoPreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage('');
@@ -52,24 +73,45 @@ export default function UserCreationForm({ onUserCreated }) {
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/auth/users`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          username: formData.username,
-          password: formData.password,
-          role: formData.role
-        }),
-      });
+      let response;
+      
+      if (profilePhoto) {
+        // Use FormData for photo upload
+        const formDataObj = new FormData();
+        formDataObj.append('username', formData.username);
+        formDataObj.append('password', formData.password);
+        formDataObj.append('role', formData.role);
+        formDataObj.append('photo', profilePhoto);
+        
+        response = await fetch(`${API_BASE}/auth/users/with-photo`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+          body: formDataObj,
+        });
+      } else {
+        // Use JSON for no photo
+        response = await fetch(`${API_BASE}/auth/users`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            username: formData.username,
+            password: formData.password,
+            role: formData.role
+          }),
+        });
+      }
 
       const data = await response.json();
 
       if (response.ok) {
         setMessage(`✅ Successfully created ${data.role}: ${data.username}`);
         setFormData({ username: '', password: '', confirmPassword: '', role: 'teacher' });
+        clearPhoto();
         if (onUserCreated) onUserCreated();
       } else {
         setMessage(`❌ Error: ${data.detail || 'Failed to create user'}`);
@@ -100,6 +142,38 @@ export default function UserCreationForm({ onUserCreated }) {
       </div>
 
       <form onSubmit={handleSubmit} className="user-form">
+        {/* Profile Photo */}
+        <div className="form-field">
+          <label className="form-label">📷 Profile Photo (Optional)</label>
+          <div className="photo-upload-section">
+            <div className="photo-preview-container">
+              {photoPreview ? (
+                <img src={photoPreview} alt="Preview" className="photo-preview" />
+              ) : (
+                <div className="photo-preview-placeholder">👤</div>
+              )}
+              <div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePhotoChange}
+                  ref={fileInputRef}
+                  className="photo-upload-input"
+                  id="profile-photo-input"
+                />
+                <label htmlFor="profile-photo-input" className="photo-upload-btn">
+                  📤 {photoPreview ? 'Change Photo' : 'Upload Photo'}
+                </label>
+                {photoPreview && (
+                  <button type="button" onClick={clearPhoto} className="photo-remove-btn" style={{ marginLeft: 8 }}>
+                    ✕ Remove
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Username */}
         <div className="form-field">
           <label className="form-label">👤 Username</label>

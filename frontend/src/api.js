@@ -19,6 +19,11 @@ async function apiRequest(url, options = {}) {
     };
     const res = await fetch(`${API_BASE}${url}`, { ...options, headers: mergedHeaders });
     if (!res.ok) {
+      if (res.status === 401) {
+        // Clear invalid token and throw specific error
+        console.warn('Session expired or invalid token');
+        throw new Error('Session expired. Please log in again.');
+      }
       const errorData = await res.json().catch(() => ({ detail: 'An unknown error occurred' }));
       throw new Error(errorData.detail);
     }

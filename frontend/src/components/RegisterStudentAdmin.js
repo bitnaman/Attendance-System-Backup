@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
 export default function RegisterStudentAdmin({ showMessage }) {
   const [studentForm, setStudentForm] = useState({
@@ -22,15 +22,14 @@ export default function RegisterStudentAdmin({ showMessage }) {
 
   const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:8000';
 
-  // Load available classes
-  useEffect(() => {
-    loadClasses();
-  }, []);
-
-  const loadClasses = async () => {
+  const loadClasses = useCallback(async () => {
     try {
       setLoadingClasses(true);
       const response = await fetch(`${API_BASE}/student/classes`);
+      if (response.status === 401) {
+        showMessage?.('Session expired. Please log in again.', 'error');
+        return;
+      }
       if (response.ok) {
         const data = await response.json();
         setClasses(data);
@@ -40,7 +39,12 @@ export default function RegisterStudentAdmin({ showMessage }) {
     } finally {
       setLoadingClasses(false);
     }
-  };
+  }, [API_BASE, showMessage]);
+
+  // Load available classes
+  useEffect(() => {
+    loadClasses();
+  }, [loadClasses]);
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];

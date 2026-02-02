@@ -53,13 +53,21 @@ class User(Base):
     username = Column(String(150), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
     role = Column(String(50), nullable=False, index=True)  # "superadmin" | "teacher" | "student"
+    profile_photo = Column(String(500), nullable=True)  # Path or URL to profile photo
     is_active = Column(Boolean, default=True)
     is_primary_admin = Column(Boolean, default=False)  # Protected superadmin (cannot be modified by others)
+    
+    # Soft delete fields
+    is_deleted = Column(Boolean, default=False, index=True)
+    deleted_at = Column(DateTime, nullable=True)
+    deletion_reason = Column(Text, nullable=True)
+    deleted_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def __repr__(self):
-        return f"<User(id={self.id}, username='{self.username}', role='{self.role}', is_active={self.is_active}, is_primary={self.is_primary_admin})>"
+        return f"<User(id={self.id}, username='{self.username}', role='{self.role}', is_active={self.is_active}, is_primary={self.is_primary_admin}, is_deleted={self.is_deleted})>"
 
 
 class Class(Base):
@@ -244,7 +252,8 @@ def create_all_tables() -> None:
 
 def init_fresh_db() -> None:
     """Initialize fresh database - drops existing and creates new"""
-    print("🔄 Initializing fresh SQLite database...")
+    db_type = "PostgreSQL" if DATABASE_TYPE == "postgresql" else "SQLite"
+    print(f"🔄 Initializing fresh {db_type} database...")
     drop_all_tables()
     create_all_tables()
     
@@ -255,7 +264,7 @@ def init_fresh_db() -> None:
     finally:
         db.close()
     
-    print("✅ Fresh database initialized successfully!")
+    print(f"✅ Fresh {db_type} database initialized successfully!")
 
 
 def create_sample_classes(db_session) -> None:

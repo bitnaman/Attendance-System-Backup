@@ -17,11 +17,9 @@
 @import './styles/attendance.css';
 @import './styles/attendance-stats.css';
 @import './styles/attendance-export.css';
-@import './styles/mark-attendance.css';
 @import './styles/states.css';
 @import './styles/utilities.css';
 @import './styles/register-student.css';
-@import './styles/manage-students.css';
 @import './styles/backup-manager.css';
 /* Mobile responsive - must be last to override other styles */
 @import './styles/mobile-responsive.css';

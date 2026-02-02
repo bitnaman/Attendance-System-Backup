@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { fetchStudents, fetchExportClasses } from '../api';
+import React, { useState, useEffect, useCallback } from 'react';
 
 const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:8000';
 
@@ -30,57 +29,42 @@ export default function MedicalLeave({ showMessage }) {
     dateTo: ''
   });
 
-  useEffect(() => {
-    loadInitialData();
-  }, []);
-
-  useEffect(() => {
-    if (leaveForm.classId) {
-      loadStudentsForClass(leaveForm.classId);
-    } else {
-      setStudents([]);
-    }
-  }, [leaveForm.classId]);
-
-  // Load students for filter section
-  useEffect(() => {
-    if (filters.classId) {
-      loadStudentsForClass(filters.classId);
-    } else {
-      setStudents([]);
-    }
-  }, [filters.classId]);
-
-  useEffect(() => {
-    if (activeTab === 'list') {
-      loadLeaves();
-    }
-  }, [activeTab, filters]);
-
-  const loadInitialData = async () => {
+  const loadInitialData = useCallback(async () => {
     try {
-      const [classesData] = await Promise.all([
-        fetchExportClasses()
-      ]);
-      setClasses(classesData.classes || []);
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`${API_BASE}/student/classes`, {
+        headers: { Authorization: `Bearer ${token || ''}` }
+      });
+      if (response.status === 401) {
+        showMessage?.('Session expired. Please log in again.', 'error');
+        return;
+      }
+      if (response.ok) {
+        const data = await response.json();
+        setClasses(data || []);
+      }
     } catch (e) {
-      showMessage('Failed to load initial data', 'error');
+      showMessage?.('Failed to load classes', 'error');
     }
-  };
+  }, [showMessage]);
 
-  const loadStudentsForClass = async (classId) => {
+  const loadStudentsForClass = useCallback(async (classId) => {
     try {
       const response = await fetch(`${API_BASE}/student/filter?class_id=${classId}&page=1&page_size=200`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('auth_token') || ''}` }
       });
+      if (response.status === 401) {
+        showMessage?.('Session expired. Please log in again.', 'error');
+        return;
+      }
       const data = await response.json();
       setStudents(data.students || []);
     } catch (e) {
-      showMessage('Failed to load students', 'error');
+      showMessage?.('Failed to load students', 'error');
     }
-  };
+  }, [showMessage]);
 
-  const loadLeaves = async () => {
+  const loadLeaves = useCallback(async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
@@ -91,14 +75,45 @@ export default function MedicalLeave({ showMessage }) {
       const response = await fetch(`${API_BASE}/medical/leave?${params.toString()}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('auth_token') || ''}` }
       });
+      if (response.status === 401) {
+        showMessage?.('Session expired. Please log in again.', 'error');
+        return;
+      }
       const data = await response.json();
       setLeaves(data || []);
     } catch (e) {
-      showMessage('Failed to load leave records', 'error');
+      showMessage?.('Failed to load leave records', 'error');
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters.studentId, filters.dateFrom, filters.dateTo, showMessage]);
+
+  useEffect(() => {
+    loadInitialData();
+  }, [loadInitialData]);
+
+  useEffect(() => {
+    if (leaveForm.classId) {
+      loadStudentsForClass(leaveForm.classId);
+    } else {
+      setStudents([]);
+    }
+  }, [leaveForm.classId, loadStudentsForClass]);
+
+  // Load students for filter section
+  useEffect(() => {
+    if (filters.classId) {
+      loadStudentsForClass(filters.classId);
+    } else {
+      setStudents([]);
+    }
+  }, [filters.classId, loadStudentsForClass]);
+
+  useEffect(() => {
+    if (activeTab === 'list') {
+      loadLeaves();
+    }
+  }, [activeTab, loadLeaves]);
 
   const handleCreateLeave = async (e) => {
     e.preventDefault();
@@ -181,8 +196,8 @@ export default function MedicalLeave({ showMessage }) {
       {activeTab === 'create' && (
         <div>
           <h3>Mark Medical/Authorized Leave</h3>
-          <form onSubmit={handleCreateLeave} style={{ display: 'grid', gap: 16, maxWidth: 600 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <form onSubmit={handleCreateLeave} className="medical-leave-form" style={{ display: 'grid', gap: 16, maxWidth: 600 }}>
+            <div className="form-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
               <div>
                 <label>Class</label>
                 <select 
@@ -219,7 +234,7 @@ export default function MedicalLeave({ showMessage }) {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div className="form-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
               <div>
                 <label>Leave Type</label>
                 <select 
@@ -238,19 +253,20 @@ export default function MedicalLeave({ showMessage }) {
                   max="100"
                   value={leaveForm.sessionsCount} 
                   onChange={(e) => setLeaveForm({ ...leaveForm, sessionsCount: Math.max(1, parseInt(e.target.value) || 1) })}
-                  style={{ width: '100%', padding: 8, border: '1px solid #ddd', borderRadius: 4 }}
+                  style={{ width: '100%', padding: 8, border: '1px solid #ddd', borderRadius: 4, boxSizing: 'border-box' }}
                 />
                 <small style={{ color: '#666' }}>How many attendance sessions does this leave cover?</small>
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div className="form-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
               <div>
                 <label>Leave Start Date</label>
                 <input 
                   type="date" 
                   value={leaveForm.leaveDate} 
                   onChange={(e) => setLeaveForm({ ...leaveForm, leaveDate: e.target.value })}
+                  style={{ width: '100%', boxSizing: 'border-box' }}
                 />
               </div>
               <div>
@@ -260,6 +276,7 @@ export default function MedicalLeave({ showMessage }) {
                   value={leaveForm.leaveEndDate} 
                   onChange={(e) => setLeaveForm({ ...leaveForm, leaveEndDate: e.target.value })}
                   min={leaveForm.leaveDate}
+                  style={{ width: '100%', boxSizing: 'border-box' }}
                 />
                 <small style={{ color: '#666' }}>For multi-day leave</small>
               </div>

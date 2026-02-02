@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
 const API_BASE = process.env.REACT_APP_API_BASE || 'http://127.0.0.1:8000';
 
@@ -17,18 +17,18 @@ const BackupManager = ({ showMessage }) => {
   const [creating, setCreating] = useState(false);
   const [restoring, setRestoring] = useState(false);
 
-  const fetchBackups = async () => {
+  const fetchBackups = useCallback(async () => {
     setLoading(true);
     try {
       const data = await apiRequest('/student/backups');
       setBackups(data.backups || []);
     } catch (error) {
-      showMessage(`Error fetching backups: ${error.message}`, 'error');
+      showMessage?.(`Error fetching backups: ${error.message}`, 'error');
       setBackups([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [showMessage]);
 
   const createBackup = async () => {
     setCreating(true);
@@ -87,7 +87,7 @@ const BackupManager = ({ showMessage }) => {
   // Fetch backups on component mount
   useEffect(() => {
     fetchBackups();
-  }, []);
+  }, [fetchBackups]);
 
   return (
     <div className="backup-manager">

@@ -13,9 +13,10 @@ pydantic==2.11.7                      # Data validation and serialization
 pydantic-core==2.33.2                 # Pydantic core validation engine
 
 # ================================================================================================
-# DATABASE LAYER (SQLite)
+# DATABASE LAYER (PostgreSQL + SQLite)
 # ================================================================================================
 sqlalchemy==2.0.43                    # Modern SQL toolkit and ORM
+psycopg2-binary==2.9.10               # PostgreSQL driver
 # SQLite is built into Python - no additional driver needed
 
 # ================================================================================================
