@@ -227,3 +227,4 @@ frontend/.env.production
 *.njsproj
 *.sln
 *.sw?
+backend/logs/app.log
