@@ -193,7 +193,7 @@ def cleanup_users(connection):
     connection.commit()
     
     print(f"   ✅ Deleted {count} users")
-    print("   🔒 Primary admin (bitnaman) preserved")
+    print("   🔒 Primary admin preserved")
 
 def cleanup_all_data(connection):
     """Delete all data from all tables (except primary admin)"""
@@ -230,7 +230,7 @@ def cleanup_all_data(connection):
     connection.commit()
     
     print("\n   ✅ All data deleted successfully!")
-    print("   🔒 Primary admin (bitnaman) preserved")
+    print("   🔒 Primary admin preserved")
     print("   📋 All tables remain intact (schema preserved)")
 
 def show_menu():
@@ -262,7 +262,7 @@ def show_menu():
     print()
     print("  7️⃣   Delete ALL Users (except primary admin)")
     print("       → Removes all users")
-    print("       → Primary admin (bitnaman) is protected")
+    print("       → Primary admin is protected")
     print()
     print("  8️⃣   Show Current Statistics")
     print("       → Display record counts")
@@ -360,8 +360,8 @@ def main():
                 print("  • ALL attendance sessions")
                 print("  • ALL attendance records")
                 print("  • ALL leave records")
-                print("  • ALL users (except bitnaman)")
-                print("\nOnly bitnaman will remain.")
+                print("  • ALL users (except primary admin)")
+                print("\nOnly the primary admin will remain.")
                 print("Tables and schema will stay intact.")
                 
                 if confirm_action("DELETE ALL DATA (NUCLEAR OPTION)"):

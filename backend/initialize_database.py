@@ -14,7 +14,7 @@ Features:
     ✅ Adds missing columns
     ✅ Creates indexes
     ✅ Sets up foreign keys
-    ✅ Marks bitnaman as primary admin
+    ✅ Checks primary admin status
     ✅ Ensures timestamps on subjects
     ✅ Idempotent (safe to run multiple times)
 """
@@ -149,29 +149,32 @@ def run_initialization():
                 skip_count += 1
             
             # ================================================================
-            # STEP 3: SET PRIMARY ADMIN
+            # STEP 3: CHECK PRIMARY ADMIN STATUS
             # ================================================================
-            print("\n📋 STEP 3: Configuring primary admin...")
+            print("\n📋 STEP 3: Checking primary admin status...")
             
-            # Check if bitnaman exists
+            # Check if any primary admin exists
             result = connection.execute(text("""
-                SELECT id, is_primary_admin FROM users WHERE username = 'bitnaman'
+                SELECT id, username, is_primary_admin FROM users 
+                WHERE is_primary_admin = TRUE
             """)).fetchone()
             
             if result:
-                if not result[1]:  # If not already primary admin
-                    connection.execute(text("""
-                        UPDATE users 
-                        SET is_primary_admin = TRUE 
-                        WHERE username = 'bitnaman'
-                    """))
-                    print("   ✅ Set bitnaman as primary admin")
-                    success_count += 1
-                else:
-                    print("   ℹ️  bitnaman already marked as primary admin")
-                    skip_count += 1
+                print(f"   ✅ Primary admin exists: {result[1]} (ID: {result[0]})")
+                skip_count += 1
             else:
-                print("   ⚠️  User 'bitnaman' not found - will be created on first bootstrap")
+                # Check if any superadmin exists
+                superadmin = connection.execute(text("""
+                    SELECT id, username FROM users 
+                    WHERE role = 'superadmin' 
+                    LIMIT 1
+                """)).fetchone()
+                
+                if superadmin:
+                    print(f"   ⚠️  No primary admin set. Run 'python3 set_primary_admin.py' to configure.")
+                    print(f"       Available superadmin: {superadmin[1]} (ID: {superadmin[0]})")
+                else:
+                    print("   ℹ️  No users exist yet. Run 'python3 create_admin.py' after initialization.")
                 skip_count += 1
             
             # ================================================================
