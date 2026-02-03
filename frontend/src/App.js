@@ -10,7 +10,6 @@ import { AuthProvider, RequireAuth, useAuth } from './AuthContext';
 import ExportPanel from './components/ExportPanel';
 import MedicalLeave from './components/MedicalLeave';
 import UserProfile from './components/UserProfile';
-import BootstrapAdmin from './components/BootstrapAdmin';
 import UpgradeEmbeddingsModal from './components/UpgradeEmbeddingsModal';
 import EditStudentModal from './components/EditStudentModal';
 import DeleteConfirmationModal from './components/DeleteConfirmationModal';
@@ -612,76 +611,66 @@ function AppShell() {
   );
 }
 
+// Branded Loading Screen Component
+function LoadingScreen() {
+  return (
+    <div className="loading-screen">
+      <div className="loading-content">
+        {/* Logo */}
+        <div className="loading-logo">
+          <img src="/logo.jpeg" alt="Bharati Vidyapeeth" className="loading-logo-img" />
+        </div>
+        
+        {/* Brand Name */}
+        <h1 className="loading-brand">
+          Bharati <span className="loading-brand-highlight">Facify</span>
+        </h1>
+        
+        {/* Tagline */}
+        <p className="loading-tagline">AI-Powered Facial Recognition Attendance</p>
+        
+        {/* Loading Spinner */}
+        <div className="loading-spinner-container">
+          <div className="loading-spinner">
+            <div className="spinner-ring"></div>
+            <div className="spinner-ring"></div>
+            <div className="spinner-ring"></div>
+            <div className="spinner-dot"></div>
+          </div>
+        </div>
+        
+        {/* Loading Text */}
+        <p className="loading-text">Initializing System...</p>
+        
+        {/* Powered By */}
+        <div className="loading-footer">
+          <span className="loading-footer-text">Powered by Advanced AI</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const auth = useAuth();
   const token = auth?.token;
-  const [needsBootstrap, setNeedsBootstrap] = useState(null);
-  const [checkingBootstrap, setCheckingBootstrap] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Check if bootstrap is needed
+  // Brief loading screen for initialization
   useEffect(() => {
-    const checkBootstrap = async () => {
-      try {
-        // Try to get current user to see if any users exist
-        const response = await fetch(`${API_BASE}/auth/me`, {
-          headers: { Authorization: `Bearer ${token || 'dummy'}` }
-        });
-        
-        if (response.status === 401) {
-          // No valid token, check if we can bootstrap
-          const bootstrapResponse = await fetch(`${API_BASE}/auth/bootstrap-superadmin`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: 'test', password: 'test' })
-          });
-          
-          if (bootstrapResponse.status === 403) {
-            // Users exist, show login
-            setNeedsBootstrap(false);
-          } else {
-            // No users exist, show bootstrap
-            setNeedsBootstrap(true);
-          }
-        } else {
-          // Valid token, user is logged in
-          setNeedsBootstrap(false);
-        }
-      } catch (error) {
-        // Network error or other issue, assume bootstrap needed
-        setNeedsBootstrap(true);
-      } finally {
-        setCheckingBootstrap(false);
-      }
-    };
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 800); // Brief delay for smooth UX
 
-    if (!token) {
-      checkBootstrap();
-    } else {
-      setNeedsBootstrap(false);
-      setCheckingBootstrap(false);
-    }
-  }, [token]);
+    return () => clearTimeout(timer);
+  }, []);
 
-  if (checkingBootstrap) {
-    return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        height: '100vh',
-        fontSize: 18,
-        color: '#6c757d'
-      }}>
-        🔄 Checking system status...
-      </div>
-    );
+  if (isLoading) {
+    return <LoadingScreen />;
   }
 
-  if (!token && needsBootstrap === true) {
-    return <BootstrapAdmin />;
-  }
-
-  if (!token && needsBootstrap === false) {
+  // Simple auth check - if no token, show login
+  if (!token) {
     return <Login />;
   }
 
