@@ -111,9 +111,15 @@ export default function UserProfile({ user, showMessage }) {
                   alt={user.username}
                   className="user-avatar-img"
                   onError={(e) => {
-                    if (e.target) {
-                      e.target.style.display = 'none';
-                      if (e.target.parentNode) e.target.parentNode.textContent = getInitials(user.username);
+                    try {
+                      if (e.target && e.target.style) {
+                        e.target.style.display = 'none';
+                      }
+                      if (e.target && e.target.parentNode) {
+                        e.target.parentNode.textContent = getInitials(user.username);
+                      }
+                    } catch (err) {
+                      console.warn('Image error handler failed:', err);
                     }
                   }}
                 />

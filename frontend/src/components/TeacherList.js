@@ -303,12 +303,18 @@ export default function TeacherList({ onRefresh }) {
                       alt={teacher.username}
                       className="user-item-avatar-img"
                       onError={(e) => {
-                        if (e.target) {
-                          e.target.style.display = 'none';
-                          if (e.target.parentNode) {
-                            e.target.parentNode.textContent = teacher.username.charAt(0).toUpperCase();
-                            e.target.parentNode.style.backgroundColor = getRoleColor(teacher.role);
+                        try {
+                          if (e.target && e.target.style) {
+                            e.target.style.display = 'none';
                           }
+                          if (e.target && e.target.parentNode) {
+                            e.target.parentNode.textContent = teacher.username.charAt(0).toUpperCase();
+                            if (e.target.parentNode.style) {
+                              e.target.parentNode.style.backgroundColor = getRoleColor(teacher.role);
+                            }
+                          }
+                        } catch (err) {
+                          console.warn('Image error handler failed:', err);
                         }
                       }}
                     />

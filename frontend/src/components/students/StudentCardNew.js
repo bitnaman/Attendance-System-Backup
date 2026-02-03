@@ -66,10 +66,14 @@ export default function StudentCardNew({
               src={photoSrc} 
               alt={student.name}
               onError={(e) => {
-                if (e.target) {
-                  e.target.style.display = 'none';
-                  if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
-                }
+                try {
+                  if (e.target && e.target.style) {
+                    e.target.style.display = 'none';
+                  }
+                  if (e.target && e.target.nextSibling && e.target.nextSibling.style) {
+                    e.target.nextSibling.style.display = 'flex';
+                  }
+                } catch (err) {}
               }}
             />
           ) : null}
@@ -189,10 +193,14 @@ export default function StudentCardNew({
                 src={photoSrc} 
                 alt={student.name}
                 onError={(e) => {
-                  if (e.target) {
-                    e.target.style.display = 'none';
-                    if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
-                  }
+                  try {
+                    if (e.target && e.target.style) {
+                      e.target.style.display = 'none';
+                    }
+                    if (e.target && e.target.nextSibling && e.target.nextSibling.style) {
+                      e.target.nextSibling.style.display = 'flex';
+                    }
+                  } catch (err) {}
                 }}
               />
             ) : null}
