@@ -111,8 +111,10 @@ export default function UserProfile({ user, showMessage }) {
                   alt={user.username}
                   className="user-avatar-img"
                   onError={(e) => {
-                    e.target.style.display = 'none';
-                    e.target.parentNode.textContent = getInitials(user.username);
+                    if (e.target) {
+                      e.target.style.display = 'none';
+                      if (e.target.parentNode) e.target.parentNode.textContent = getInitials(user.username);
+                    }
                   }}
                 />
               ) : (

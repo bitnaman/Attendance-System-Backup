@@ -3,8 +3,9 @@ Migration: Add model tracking columns to students table
 Tracks which model and detector were used for embedding generation
 """
 import logging
-from sqlalchemy import Column, String, Boolean, text
+from sqlalchemy import text, inspect
 from database import engine
+from config import DATABASE_TYPE
 
 logger = logging.getLogger(__name__)
 
@@ -15,15 +16,21 @@ def add_model_tracking_columns():
     columns_to_add = [
         ("embedding_model", "VARCHAR(50)"),
         ("embedding_detector", "VARCHAR(50)"),
-        ("has_enhanced_embeddings", "BOOLEAN DEFAULT 0")
+        ("has_enhanced_embeddings", "BOOLEAN DEFAULT FALSE")
     ]
     
     try:
-        with engine.connect() as conn:
-            # Check which columns already exist
-            result = conn.execute(text("PRAGMA table_info(students)"))
-            existing_columns = {row[1] for row in result.fetchall()}
+        # Use SQLAlchemy inspector for database-agnostic column check
+        inspector = inspect(engine)
+        
+        # Check if students table exists
+        if 'students' not in inspector.get_table_names():
+            logger.info("Students table doesn't exist yet, skipping migration")
+            return True
             
+        existing_columns = {col['name'] for col in inspector.get_columns('students')}
+        
+        with engine.connect() as conn:
             for col_name, col_type in columns_to_add:
                 if col_name not in existing_columns:
                     try:

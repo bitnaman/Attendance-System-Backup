@@ -66,8 +66,10 @@ export default function StudentCardNew({
               src={photoSrc} 
               alt={student.name}
               onError={(e) => {
-                e.target.style.display = 'none';
-                e.target.nextSibling.style.display = 'flex';
+                if (e.target) {
+                  e.target.style.display = 'none';
+                  if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
+                }
               }}
             />
           ) : null}
@@ -187,8 +189,10 @@ export default function StudentCardNew({
                 src={photoSrc} 
                 alt={student.name}
                 onError={(e) => {
-                  e.target.style.display = 'none';
-                  e.target.nextSibling.style.display = 'flex';
+                  if (e.target) {
+                    e.target.style.display = 'none';
+                    if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
+                  }
                 }}
               />
             ) : null}

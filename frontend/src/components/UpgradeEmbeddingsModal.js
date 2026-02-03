@@ -165,7 +165,7 @@ const UpgradeEmbeddingsModal = ({
                   <img 
                     src={student.photo_url.startsWith('http') ? student.photo_url : `${API_BASE}${student.photo_url}`} 
                     alt={student.name}
-                    onError={(e) => { e.target.style.display = 'none'; }}
+                    onError={(e) => { if (e.target) e.target.style.display = 'none'; }}
                   />
                 ) : (
                   <div className="no-photo">No Photo</div>
