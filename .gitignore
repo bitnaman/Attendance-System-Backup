@@ -229,3 +229,4 @@ frontend/.env.production
 *.sw?
 backend/logs/app.log
 backend/logs/app.log
+/backend/logs
