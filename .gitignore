@@ -227,6 +227,8 @@ frontend/.env.production
 *.njsproj
 *.sln
 *.sw?
+# Backend log files
+backend/logs/
 backend/logs/app.log
-backend/logs/app.log
-/backend/logs
+backend/app.log
+*.log
