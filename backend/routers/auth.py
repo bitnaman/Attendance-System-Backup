@@ -285,6 +285,63 @@ def bootstrap_superadmin(payload: BootstrapRequest, db: Session = Depends(get_db
     return user
 
 
+class UpdateUserDetailsRequest(BaseModel):
+    username: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+@router.put("/users/{user_id}/details", response_model=UserOut)
+def update_user_details(
+    user_id: int,
+    payload: UpdateUserDetailsRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_superadmin)
+):
+    """Update user details (superadmin only). Can update username and active status."""
+    # Get the target user
+    target_user = db.query(User).filter(User.id == user_id).first()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # 🔒 PROTECT PRIMARY ADMIN: Cannot modify primary admin (except by themselves)
+    if target_user.is_primary_admin and target_user.id != current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Cannot modify primary admin '{target_user.username}'. This account is protected."
+        )
+    
+    # Update username if provided
+    if payload.username is not None:
+        # Check username format
+        if len(payload.username) < 3:
+            raise HTTPException(status_code=400, detail="Username must be at least 3 characters")
+        if not payload.username.replace('_', '').replace('-', '').isalnum():
+            raise HTTPException(status_code=400, detail="Username can only contain letters, numbers, underscores and hyphens")
+        
+        # Check if username already exists (excluding current user)
+        existing = db.query(User).filter(
+            User.username == payload.username,
+            User.id != user_id
+        ).first()
+        if existing:
+            raise HTTPException(status_code=409, detail="Username already exists")
+        
+        target_user.username = payload.username
+    
+    # Update active status if provided
+    if payload.is_active is not None:
+        # Cannot deactivate primary admin
+        if target_user.is_primary_admin and not payload.is_active:
+            raise HTTPException(status_code=403, detail="Cannot deactivate primary admin account")
+        target_user.is_active = payload.is_active
+    
+    target_user.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(target_user)
+    
+    return target_user
+
+
 class UpdateUserRoleRequest(BaseModel):
     role: str  # "teacher" | "superadmin" | "student"
 

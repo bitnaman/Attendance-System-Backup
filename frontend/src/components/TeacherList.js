@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../AuthContext';
-import DeleteUserModal from './DeleteUserModal';
+import EditStaffModal from './EditStaffModal';
 import '../styles/user-profile.css';
 
 const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:8000';
@@ -10,10 +10,8 @@ export default function TeacherList({ onRefresh }) {
   const [teachers, setTeachers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [updatingRole, setUpdatingRole] = useState(null);
-  const [resettingPassword, setResettingPassword] = useState(null);
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [userToDelete, setUserToDelete] = useState(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [userToEdit, setUserToEdit] = useState(null);
   const [restoringUser, setRestoringUser] = useState(null);
 
   const fetchTeachers = useCallback(async () => {
@@ -53,109 +51,18 @@ export default function TeacherList({ onRefresh }) {
     return role === 'superadmin' ? '#e74c3c' : role === 'teacher' ? '#3498db' : '#95a5a6';
   };
 
-  const handleRoleChange = async (userId, newRole, username) => {
-    if (updatingRole === userId) return;
-    
-    const roleDisplay = newRole === 'superadmin' ? 'Super Admin' : 'Teacher';
-    if (!window.confirm(`Change ${username}'s role to ${roleDisplay}?`)) return;
-
-    try {
-      setUpdatingRole(userId);
-      const response = await fetch(`${API_BASE}/auth/users/${userId}/role`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ role: newRole }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.detail || 'Failed to update role');
-      }
-
-      await fetchTeachers();
-      alert(`✅ ${username}'s role changed to ${roleDisplay}.\n\n⚠️ They must LOG OUT and LOG BACK IN for changes to take effect.`);
-    } catch (err) {
-      alert(`❌ Error: ${err.message}`);
-    } finally {
-      setUpdatingRole(null);
-    }
+  const openEditModal = (teacher) => {
+    setUserToEdit(teacher);
+    setEditModalOpen(true);
   };
 
-  const handlePasswordReset = async (userId, username, isPrimaryAdmin) => {
-    if (resettingPassword === userId) return;
-    
-    if (isPrimaryAdmin && currentUser.username !== username) {
-      alert(`🔒 Cannot reset password for primary admin '${username}'.`);
-      return;
-    }
-    
-    const newPassword = window.prompt(`Reset password for ${username}:\n\nEnter new password (min 6 characters):`);
-    if (!newPassword) return;
-    if (newPassword.length < 6) {
-      alert('❌ Password must be at least 6 characters!');
-      return;
-    }
-    if (!window.confirm(`Reset ${username}'s password?`)) return;
-
-    try {
-      setResettingPassword(userId);
-      const response = await fetch(`${API_BASE}/auth/users/${userId}/password`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ new_password: newPassword }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.detail || 'Failed to reset password');
-      }
-
-      alert(`✅ ${username}'s password has been reset.`);
-    } catch (err) {
-      alert(`❌ Error: ${err.message}`);
-    } finally {
-      setResettingPassword(null);
-    }
+  const closeEditModal = () => {
+    setEditModalOpen(false);
+    setUserToEdit(null);
   };
 
-  const openDeleteModal = (teacher) => {
-    setUserToDelete(teacher);
-    setDeleteModalOpen(true);
-  };
-
-  const closeDeleteModal = () => {
-    setDeleteModalOpen(false);
-    setUserToDelete(null);
-  };
-
-  const handleDeleteUser = async (userId, reason) => {
-    try {
-      const response = await fetch(`${API_BASE}/auth/users/${userId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ reason }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.detail || 'Failed to delete user');
-      }
-
-      await fetchTeachers();
-      closeDeleteModal();
-      alert('✅ User has been marked for deletion. They will be permanently removed after 45 days.');
-    } catch (err) {
-      alert(`❌ Error: ${err.message}`);
-    }
+  const handleUserUpdated = () => {
+    fetchTeachers();
   };
 
   const handleRestoreUser = async (userId, username) => {
@@ -303,18 +210,19 @@ export default function TeacherList({ onRefresh }) {
                       alt={teacher.username}
                       className="user-item-avatar-img"
                       onError={(e) => {
-                        try {
-                          if (e.target && e.target.style) {
-                            e.target.style.display = 'none';
+                        // Safely hide image and show fallback
+                        const img = e.currentTarget;
+                        if (img) {
+                          img.style.display = 'none';
+                          // Create a fallback text node instead of modifying parent directly
+                          const parent = img.parentElement;
+                          if (parent && !parent.querySelector('.fallback-initial')) {
+                            const fallback = document.createElement('span');
+                            fallback.className = 'fallback-initial';
+                            fallback.textContent = teacher.username.charAt(0).toUpperCase();
+                            parent.appendChild(fallback);
+                            parent.style.backgroundColor = getRoleColor(teacher.role);
                           }
-                          if (e.target && e.target.parentNode) {
-                            e.target.parentNode.textContent = teacher.username.charAt(0).toUpperCase();
-                            if (e.target.parentNode.style) {
-                              e.target.parentNode.style.backgroundColor = getRoleColor(teacher.role);
-                            }
-                          }
-                        } catch (err) {
-                          console.warn('Image error handler failed:', err);
                         }
                       }}
                     />
@@ -358,59 +266,28 @@ export default function TeacherList({ onRefresh }) {
                 ) : (
                   /* Active User Actions */
                   <>
-                    {/* Role Control */}
-                    {currentUser && teacher.id !== currentUser.id && !teacher.is_primary_admin ? (
-                      <select
-                        className="role-select"
-                        value={teacher.role}
-                        onChange={(e) => handleRoleChange(teacher.id, e.target.value, teacher.username)}
-                        disabled={updatingRole === teacher.id}
-                        style={{ 
-                          borderColor: `${getRoleColor(teacher.role)}60`,
-                          color: getRoleColor(teacher.role)
-                        }}
-                      >
-                        <option value="teacher">👨‍🏫 Teacher</option>
-                        <option value="superadmin">👑 Admin</option>
-                      </select>
-                    ) : (
-                      <span className={`role-badge ${teacher.is_primary_admin ? 'protected' : ''}`}>
-                        {teacher.is_primary_admin ? '🔒' : (teacher.role === 'superadmin' ? '👑' : '👨‍🏫')}
-                        {teacher.role === 'superadmin' ? ' Admin' : ' Teacher'}
-                        {teacher.is_primary_admin && <span style={{ fontSize: '0.65rem' }}> (Protected)</span>}
-                        {currentUser && teacher.id === currentUser.id && !teacher.is_primary_admin && 
-                          <span style={{ opacity: 0.7 }}> (You)</span>}
-                      </span>
-                    )}
+                    {/* Role Badge */}
+                    <span className={`role-badge ${teacher.is_primary_admin ? 'protected' : ''}`}>
+                      {teacher.is_primary_admin ? '🔒' : (teacher.role === 'superadmin' ? '👑' : '👨‍🏫')}
+                      {teacher.role === 'superadmin' ? ' Admin' : ' Teacher'}
+                      {teacher.is_primary_admin && <span style={{ fontSize: '0.65rem' }}> (Protected)</span>}
+                      {currentUser && teacher.id === currentUser.id && !teacher.is_primary_admin && 
+                        <span style={{ opacity: 0.7 }}> (You)</span>}
+                    </span>
                     
                     {/* Status */}
                     <span className={`status-badge ${teacher.is_active ? 'active' : 'inactive'}`}>
                       {teacher.is_active ? '✅ Active' : '❌ Inactive'}
                     </span>
 
-                    {/* Password Reset */}
+                    {/* Edit Button - Opens comprehensive edit modal */}
                     <button
-                      className="action-btn password"
-                      onClick={() => handlePasswordReset(teacher.id, teacher.username, teacher.is_primary_admin)}
-                      disabled={resettingPassword === teacher.id}
-                      title={teacher.is_primary_admin && currentUser.username !== teacher.username 
-                        ? "Primary admin password is protected" 
-                        : "Reset password"}
+                      className="action-btn edit"
+                      onClick={() => openEditModal(teacher)}
+                      title="Edit user details"
                     >
-                      🔑 {resettingPassword === teacher.id ? '...' : 'Reset'}
+                      ✏️ Edit
                     </button>
-
-                    {/* Delete Button - Only show for superadmins, not for self or primary admin */}
-                    {currentUser && currentUser.role === 'superadmin' && 
-                     teacher.id !== currentUser.id && !teacher.is_primary_admin && (
-                      <button
-                        className="delete-btn"
-                        onClick={() => openDeleteModal(teacher)}
-                        title="Delete this user"
-                      >
-                        🗑️ Delete
-                      </button>
-                    )}
                   </>
                 )}
               </div>
@@ -419,12 +296,13 @@ export default function TeacherList({ onRefresh }) {
         </div>
       )}
 
-      {/* Delete User Modal */}
-      <DeleteUserModal
-        isOpen={deleteModalOpen}
-        onClose={closeDeleteModal}
-        onConfirm={handleDeleteUser}
-        user={userToDelete}
+      {/* Edit Staff Modal */}
+      <EditStaffModal
+        isOpen={editModalOpen}
+        onClose={closeEditModal}
+        user={userToEdit}
+        onUserUpdated={handleUserUpdated}
+        currentUser={currentUser}
       />
     </div>
   );

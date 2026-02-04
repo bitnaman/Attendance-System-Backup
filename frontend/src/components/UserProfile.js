@@ -111,15 +111,18 @@ export default function UserProfile({ user, showMessage }) {
                   alt={user.username}
                   className="user-avatar-img"
                   onError={(e) => {
-                    try {
-                      if (e.target && e.target.style) {
-                        e.target.style.display = 'none';
+                    // Safely hide image and show fallback
+                    const img = e.currentTarget;
+                    if (img) {
+                      img.style.display = 'none';
+                      // Create a fallback text node instead of modifying parent directly
+                      const parent = img.parentElement;
+                      if (parent && !parent.querySelector('.fallback-initial')) {
+                        const fallback = document.createElement('span');
+                        fallback.className = 'fallback-initial';
+                        fallback.textContent = getInitials(user.username);
+                        parent.appendChild(fallback);
                       }
-                      if (e.target && e.target.parentNode) {
-                        e.target.parentNode.textContent = getInitials(user.username);
-                      }
-                    } catch (err) {
-                      console.warn('Image error handler failed:', err);
                     }
                   }}
                 />

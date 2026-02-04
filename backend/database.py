@@ -76,7 +76,7 @@ class Class(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False, index=True)  # e.g., "BDS 1st Year"
-    section = Column(String(10), nullable=False, index=True)  # e.g., "A", "B", "C"
+    section = Column(String(200), nullable=False, index=True)  # e.g., "A", "B", "Section A - Subject Name"
     description = Column(Text, nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -150,7 +150,7 @@ class Student(Base):
     
     # Class assignment
     class_id = Column(Integer, ForeignKey("classes.id"), nullable=False, index=True)
-    class_section = Column(String(10), nullable=True)  # Denormalized for convenience
+    class_section = Column(String(200), nullable=True)  # Denormalized for convenience
     
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
